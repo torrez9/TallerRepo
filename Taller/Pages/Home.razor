@@ -1,0 +1,190 @@
+﻿@page "/home"
+@using Taller
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<PageTitle>Inicio</PageTitle>
+
+<div class="home-container">
+    <section class="hero">
+        <img src="images/Moto1.jpg" alt="Motos en taller" />
+        <div class="hero-text">
+            <h1>Taller de Motos Tuning</h1>
+            <p>Especialistas en personalización, reparación y mantenimiento de motocicletas.</p>
+        </div>
+    </section>
+
+    <section class="info-section">
+        <h2>Servicios Destacados</h2>
+        <div class="info-grid">
+            <div class="info-card">
+                <img src="images/taller5.jpg" alt="Motos en taller" />
+                <h3>Mantenimiento Premium</h3>
+                <p>Garantizamos el rendimiento óptimo de tu moto con servicios de primera calidad.</p>
+            </div>
+            <div class="info-card">
+                <img src="images/taller3.jpg" alt="Motos en taller" />
+                <h3>Tuning y Modificaciones</h3>
+                <p>Eleva el estilo y potencia de tu moto con diseños personalizados y piezas top.</p>
+            </div>
+            <div class="info-card">
+                <img src="images/taller2.jpg" alt="Motos en taller" />
+                <h3>Diagnóstico Avanzado</h3>
+                <p>Equipos modernos para detectar fallas electrónicas y mecánicas con precisión.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+@* Botones para enlaces a redes *@
+<footer class="site-footer">
+    <div class="footer-content">
+        <div class="footer-info">
+            <p>&copy; 2025 Taller de Motos Tuning</p>
+            <p>Calle Principal #123, Ciudad Moto, País</p>
+        </div>
+        <div class="footer-socials">
+            <a href="https://facebook.com" target="_blank" aria-label="Facebook">
+                <i class="fab fa-facebook-f"></i>
+            </a>
+            <a href="https://instagram.com" target="_blank" aria-label="Instagram">
+                <i class="fab fa-instagram"></i>
+            </a>
+            <a href="https://wa.me/123456789" target="_blank" aria-label="WhatsApp">
+                <i class="fab fa-whatsapp"></i>
+            </a>
+        </div>
+    </div>
+</footer>
+
+@* capa de estlilos  *@
+<style>
+    .home-container {
+        color: #1e1e1e;
+        background-color: #f4f4f4;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    .hero {
+        position: relative;
+        height: 480px;
+        overflow: hidden;
+    }
+
+        .hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.6);
+        }
+
+    .hero-text {
+        position: absolute;
+        top: 50%;
+        left: 5%;
+        transform: translateY(-50%);
+        color: white;
+        text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.6);
+    }
+
+        .hero-text h1 {
+            font-size: 3.2rem;
+            margin: 0 0 10px 0;
+        }
+
+        .hero-text p {
+            font-size: 1.3rem;
+            max-width: 600px;
+        }
+
+    .info-section {
+        padding: 3rem 2rem;
+        background-color: #ffffff;
+        text-align: center;
+    }
+
+        .info-section h2 {
+            font-size: 2.2rem;
+            margin-bottom: 2.5rem;
+            color: #7c3aed;
+        }
+
+    .info-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 2rem;
+    }
+
+    .info-card {
+        background-color: #fefefe;
+        border-radius: 12px;
+        width: 300px;
+        padding: 1.8rem;
+        text-align: left;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .info-card img {
+            width: 100%;
+            height: 350px;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .info-card h3 {
+            color: #7c3aed;
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .info-card p {
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            flex-grow: 1;
+        }
+
+    .site-footer {
+        background-color: #111;
+        color: #ccc;
+        padding: 2rem;
+        text-align: center;
+        margin-top: 3rem;
+    }
+
+    .footer-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .footer-info p {
+        margin: 0.3rem 0;
+        font-size: 0.95rem;
+    }
+
+    .footer-socials a {
+        margin: 0 0.5rem;
+        font-size: 1.5rem;
+        color: #a64dff;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+        .footer-socials a:hover {
+            color: #ffffff;
+        }
+</style>

@@ -1,0 +1,505 @@
+﻿@page "/ListaCitas"
+@inject HttpClient Http
+@using Taller.Models
+@using System.Globalization
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Citas Agendadas</PageTitle>
+
+<div class="page-container">
+    <div class="header-logo">
+        <img src="images/logotuning.png" alt="Logo Taller" class="logo-img" />
+        <h1>Citas Agendadas</h1>
+    </div>
+
+    <div class="appointments-table">
+        <div class="stats-container">
+            <div class="stat-card">
+                <span class="stat-label">Total:</span>
+                <span class="stat-value">@citas?.Count</span>
+            </div>
+            <div class="stat-card confirmadas">
+                <span class="stat-label">Confirmadas:</span>
+                <span class="stat-value">@(citas?.Count(c => c.Estado == "Confirmada") ?? 0)</span>
+            </div>
+            <div class="stat-card pendientes">
+                <span class="stat-label">Pendientes:</span>
+                <span class="stat-value">@(citas?.Count(c => c.Estado == "Pendiente") ?? 0)</span>
+            </div>
+            <div class="stat-card canceladas">
+                <span class="stat-label">Canceladas:</span>
+                <span class="stat-value">@(citas?.Count(c => c.Estado == "Cancelada") ?? 0)</span>
+            </div>
+        </div>
+
+        @if (citas == null || clientes == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando citas...</p>
+            </div>
+        }
+        else if (!citas.Any())
+        {
+            <p class="text-center text-muted">No hay citas disponibles.</p>
+        }
+        else
+        {
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Estados de las Citas</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="estadosChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Citas por Mes</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="citasMesChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card full-width">
+                    <h3>Top 10 Clientes con más Citas</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="clientesChart" width="800" height="400"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <h3>Top 10 Clientes con más Citas</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Total Citas</th>
+                                <th>Confirmadas</th>
+                                <th>Pendientes</th>
+                                <th>Canceladas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cliente in topClientes)
+                            {
+                                <tr>
+                                    <td>@cliente.Nombre</td>
+                                    <td>@cliente.TotalCitas</td>
+                                    <td>@cliente.CitasConfirmadas</td>
+                                    <td>@cliente.CitasPendientes</td>
+                                    <td>@cliente.CitasCanceladas</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <h3>Listado Detallado de Citas</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Fecha de la Cita</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cita in citas)
+                            {
+                                var nombreCliente = clientes.FirstOrDefault(c => c.IdCliente == cita.IdCliente)?.Nombre ?? "Desconocido";
+
+                                <tr>
+                                    <td>@nombreCliente</td>
+                                    <td>@cita.FechaCita.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        @if (cita.Estado == "Confirmada")
+                                        {
+                                            <span class="badge bg-success">Confirmada</span>
+                                        }
+                                        else if (cita.Estado == "Pendiente")
+                                        {
+                                            <span class="badge bg-warning">Pendiente</span>
+                                        }
+                                        else if (cita.Estado == "Cancelada")
+                                        {
+                                            <span class="badge bg-danger">Cancelada</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@cita.Estado</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Cita>? citas;
+    private List<Cliente>? clientes;
+    private List<ClienteCitas> topClientes = new List<ClienteCitas>();
+    private DotNetObjectReference<ListaCitas>? objRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarClientes();
+        await CargarCitas();
+
+        if (citas != null && clientes != null)
+        {
+            // Calcular el top de clientes con más citas
+            topClientes = clientes
+                .Select(cliente => new ClienteCitas
+                {
+                    IdCliente = cliente.IdCliente,
+                    Nombre = cliente.Nombre,
+                    TotalCitas = citas.Count(c => c.IdCliente == cliente.IdCliente),
+                    CitasConfirmadas = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Confirmada"),
+                    CitasPendientes = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Pendiente"),
+                    CitasCanceladas = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Cancelada")
+                })
+                .OrderByDescending(c => c.TotalCitas)
+                .Take(10)
+                .ToList();
+
+            citas = citas
+                .OrderBy(c => clientes.FirstOrDefault(cliente => cliente.IdCliente == c.IdCliente)?.Nombre)
+                .ToList();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && citas != null && clientes != null)
+        {
+            objRef = DotNetObjectReference.Create(this);
+            await CargarGraficos();
+        }
+    }
+
+    private async Task CargarClientes()
+    {
+        try
+        {
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("https://localhost:7003/api/Clientes");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error al cargar clientes: {ex.Message}");
+        }
+    }
+
+    private async Task CargarCitas()
+    {
+        try
+        {
+            citas = await Http.GetFromJsonAsync<List<Cita>>("https://localhost:7003/api/Citas");
+
+            if (citas != null)
+            {
+                citas = citas.OrderBy(c => c.IdCita).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error al cargar citas: {ex.Message}");
+        }
+    }
+
+    private async Task CargarGraficos()
+{
+    if (citas == null || clientes == null) return;
+
+    // Datos para el gráfico de estados
+    var estados = new Dictionary<string, int>
+    {
+        { "Confirmada", citas.Count(c => c.Estado == "Confirmada") },
+        { "Pendiente", citas.Count(c => c.Estado == "Pendiente") },
+        { "Cancelada", citas.Count(c => c.Estado == "Cancelada") }
+    };
+
+    // Datos para el gráfico por mes (últimos 6 meses)
+    var fechaActual = DateTime.Now;
+    var citasRecientes = citas.Where(c => c.FechaCita >= fechaActual.AddMonths(-6));
+    
+    var citasPorMes = citasRecientes
+        .GroupBy(c => new { c.FechaCita.Year, c.FechaCita.Month })
+        .OrderBy(g => g.Key.Year)
+        .ThenBy(g => g.Key.Month)
+        .Select(g => new
+        {
+            Mes = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(g.Key.Month) + " " + g.Key.Year,
+            Cantidad = g.Count()
+        })
+        .ToList();
+
+    // Si no hay datos para los últimos 6 meses, mostramos los disponibles
+    if (!citasPorMes.Any() && citas.Any())
+    {
+        citasPorMes = citas
+            .GroupBy(c => new { c.FechaCita.Year, c.FechaCita.Month })
+            .OrderBy(g => g.Key.Year)
+            .ThenBy(g => g.Key.Month)
+            .Select(g => new
+            {
+                Mes = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(g.Key.Month) + " " + g.Key.Year,
+                Cantidad = g.Count()
+            })
+            .ToList();
+    }
+
+    // Datos para el gráfico de clientes (top 10)
+    var clientesConMasCitas = clientes
+        .Select(cliente => new
+        {
+            Nombre = cliente.Nombre.Length > 20 ? cliente.Nombre.Substring(0, 17) + "..." : cliente.Nombre,
+            TotalCitas = citas.Count(c => c.IdCliente == cliente.IdCliente)
+        })
+        .Where(c => c.TotalCitas > 0)
+        .OrderByDescending(c => c.TotalCitas)
+        .Take(10)
+        .ToList();
+
+    await JSRuntime.InvokeVoidAsync("crearGraficos", 
+        estados.Keys.ToArray(),
+        estados.Values.ToArray(),
+        citasPorMes.Select(c => c.Mes).ToArray(),
+        citasPorMes.Select(c => c.Cantidad).ToArray(),
+        clientesConMasCitas.Select(c => c.Nombre).ToArray(),
+        clientesConMasCitas.Select(c => c.TotalCitas).ToArray());
+}
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
+    }
+
+    public class ClienteCitas
+    {
+        public int IdCliente { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public int TotalCitas { get; set; }
+        public int CitasConfirmadas { get; set; }
+        public int CitasPendientes { get; set; }
+        public int CitasCanceladas { get; set; }
+    }
+}
+
+
+<style>
+    .page-container {
+    padding: 2rem;
+    background-color: #f1f0fa;
+    color: #222;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+h1, h2, h3 {
+    color: #6f42c1;
+    margin-bottom: 1rem;
+}
+
+.appointments-table {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stats-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 150px;
+    background-color: #f7f7fb;
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-card.confirmadas {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+}
+
+.stat-card.pendientes {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+
+.stat-card.canceladas {
+    background-color: #f8d7da;
+    border-left: 4px solid #dc3545;
+}
+
+.stat-label {
+    display: block;
+    font-weight: 500;
+    color: #4b3c82;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #6f42c1;
+}
+
+.charts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.chart-card {
+    flex: 1;
+    min-width: 300px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.chart-card.full-width {
+    flex: 100%;
+}
+
+.chart-card h3 {
+    margin-top: 0;
+    color: #6f42c1;
+    font-size: 1.3rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+}
+
+.chart-card.full-width .chart-wrapper {
+    height: 400px;
+}
+
+.table-card {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+}
+
+.table-card h3 {
+    margin-top: 0;
+    color: #6f42c1;
+    font-size: 1.3rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+th, td {
+    padding: 0.9rem 1rem;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+th {
+    background-color: #e9e6fb;
+    color: #4b3c82;
+}
+
+td {
+    background-color: #fcfcff;
+}
+
+tr:hover {
+    background-color: #f0f3ff;
+    cursor: pointer;
+}
+
+.badge-success {
+    background-color: #28a745;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #333;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.badge-error {
+    background-color: #dc3545;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.badge-secondary {
+    background-color: #6c757d;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.header-logo h1 {
+    margin: 0;
+    color: #6f42c1;
+    font-size: 2rem;
+}
+
+.logo-img {
+    height: 130px;
+    width: auto;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+</style>

@@ -1,0 +1,487 @@
+﻿@page "/NuevoCliente"
+@inject HttpClient Http
+@using Taller.Models
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Clientes</PageTitle>
+
+<div class="page-container">
+    <div class="header-logo">
+        <img src="images/logotuning.png" alt="Logo Taller" class="logo-img" />
+        <h1>Clientes Registrados</h1>
+    </div>
+
+    <div class="appointments-table">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="input-group search-box">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" class="form-control"
+                       placeholder="Buscar clientes..."
+                       @bind="terminoBusqueda"
+                       @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" @onclick="LimpiarBusqueda">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div>
+                <button class="btn-reschedule" @onclick="() => mostrarModal = true">
+                    <i class="fas fa-plus"></i> Nuevo Cliente
+                </button>
+                <span class="badge-count">
+                    Total: @clientes?.Count
+                </span>
+            </div>
+        </div>
+
+        @if (clientes == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando clientes...</p>
+            </div>
+        }
+        else if (!clientes.Any())
+        {
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle me-2"></i>No hay clientes registrados.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Teléfono</th>
+                            <th>Correo</th>
+                            <th>Dirección</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cliente in clientesFiltrados)
+                        {
+                            <tr>
+                                <td>@cliente.Nombre</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(cliente.Telefono))
+                                    {
+                                        <a href="tel:@cliente.Telefono">@cliente.Telefono</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No especificado</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(cliente.Correo))
+                                    {
+                                        <a href="mailto:@cliente.Correo">@cliente.Correo</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No especificado</span>
+                                    }
+                                </td>
+                                <td>@(string.IsNullOrEmpty(cliente.Direccion) ? "No especificada" : cliente.Direccion)</td>
+                                <td>
+                                    <button class="btn-action" @onclick="() => EditarCliente(cliente)">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal para agregar/editar cliente -->
+<div class="modal-background @(mostrarModal ? "show" : "d-none")">
+    <div class="modal-box">
+        <h3>@(modoEdicion ? "✏️ Editar Cliente" : "➕ Nuevo Cliente")</h3>
+
+        <EditForm Model="clienteActual" OnValidSubmit="GuardarCliente">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-group">
+                <label>Nombre*</label>
+                <InputText class="form-control" @bind-Value="clienteActual.Nombre" required />
+            </div>
+            <div class="form-group">
+                <label>Teléfono*</label>
+                <InputText class="form-control" @bind-Value="clienteActual.Telefono" required />
+            </div>
+            <div class="form-group">
+                <label>Correo</label>
+                <InputText class="form-control" @bind-Value="clienteActual.Correo" />
+            </div>
+            <div class="form-group">
+                <label>Dirección</label>
+                <InputText class="form-control" @bind-Value="clienteActual.Direccion" />
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" @onclick="CerrarModal">Cancelar</button>
+                <button type="submit" class="btn-save">
+                    @(modoEdicion ? "Actualizar" : "Guardar")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<!-- Notificación Toast -->
+@if (mostrarNotificacion)
+{
+    <div class="toast-container">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header @(notificacionExito ? "toast-success" : "toast-error")">
+                <strong class="me-auto">@(notificacionExito ? "Éxito" : "Error")</strong>
+                <button type="button" class="btn-close" @onclick="CerrarNotificacion"></button>
+            </div>
+            <div class="toast-body">
+                @mensaje
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Cliente>? clientes;
+    private Cliente clienteActual = new();
+    private string mensaje = "";
+    private string terminoBusqueda = "";
+    private bool mostrarModal = false;
+    private bool mostrarNotificacion = false;
+    private bool notificacionExito = false;
+    private bool modoEdicion = false;
+
+    private IEnumerable<Cliente> clientesFiltrados =>
+        string.IsNullOrWhiteSpace(terminoBusqueda)
+            ? clientes?.OrderBy(c => c.Nombre) ?? Enumerable.Empty<Cliente>()
+            : clientes?
+                .Where(c => c.Nombre.Contains(terminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                           (c.Telefono != null && c.Telefono.Contains(terminoBusqueda)) ||
+                           (c.Correo != null && c.Correo.Contains(terminoBusqueda, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(c => c.Nombre) ?? Enumerable.Empty<Cliente>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarClientes();
+    }
+
+    private async Task CargarClientes()
+    {
+        try
+        {
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/Clientes");
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error al cargar clientes: {ex.Message}", false);
+        }
+    }
+
+    private async Task GuardarCliente()
+    {
+        try
+        {
+            HttpResponseMessage response;
+
+            if (modoEdicion)
+            {
+                response = await Http.PutAsJsonAsync($"api/Clientes/{clienteActual.IdCliente}", clienteActual);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("api/Clientes", clienteActual);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                MostrarNotificacion($"✅ Cliente {(modoEdicion ? "actualizado" : "agregado")} exitosamente.", true);
+                await CargarClientes();
+                CerrarModal();
+            }
+            else
+            {
+                var contenidoError = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ Error: {contenidoError}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error inesperado: {ex.Message}", false);
+        }
+    }
+
+    private void EditarCliente(Cliente cliente)
+    {
+        clienteActual = new Cliente
+            {
+                IdCliente = cliente.IdCliente,
+                Nombre = cliente.Nombre,
+                Telefono = cliente.Telefono,
+                Correo = cliente.Correo,
+                Direccion = cliente.Direccion
+            };
+        modoEdicion = true;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        clienteActual = new();
+        modoEdicion = false;
+    }
+
+    private void LimpiarBusqueda()
+    {
+        terminoBusqueda = "";
+    }
+
+    private void MostrarNotificacion(string mensajeNotificacion, bool exito)
+    {
+        mensaje = mensajeNotificacion;
+        notificacionExito = exito;
+        mostrarNotificacion = true;
+
+        Task.Run(async () =>
+        {
+            await Task.Delay(5000);
+            if (mostrarNotificacion)
+            {
+                await InvokeAsync(() =>
+                {
+                    mostrarNotificacion = false;
+                    StateHasChanged();
+                });
+            }
+        });
+    }
+
+    private void CerrarNotificacion()
+    {
+        mostrarNotificacion = false;
+    }
+}
+
+<style>
+    .page-container {
+        padding: 2rem;
+        background-color: #f1f0fa;
+        color: #222;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    h1, h2, h3 {
+        color: #6f42c1;
+        margin-bottom: 1rem;
+    }
+
+    .appointments-table {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    th, td {
+        padding: 0.9rem 1rem;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+
+    th {
+        background-color: #e9e6fb;
+        color: #4b3c82;
+    }
+
+    td {
+        background-color: #fcfcff;
+    }
+
+    tr:hover {
+        background-color: #f0f3ff;
+        cursor: pointer;
+    }
+
+    .search-box {
+        max-width: 400px;
+        margin-bottom: 1rem;
+    }
+
+    .badge-count {
+        background-color: #6f42c1;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        margin-left: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .btn-reschedule, .btn-cancel, .btn-save, .btn-action {
+        padding: 0.6rem 1.2rem;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-reschedule {
+        background: linear-gradient(90deg, #ffcc70, #ffb347);
+        color: #333;
+    }
+
+        .btn-reschedule:hover {
+            background: linear-gradient(90deg, #f0b235, #e59b26);
+        }
+
+    .btn-action {
+        background-color: #e9e6fb;
+        color: #4b3c82;
+    }
+
+        .btn-action:hover {
+            background-color: #d8ccff;
+        }
+
+    .btn-cancel {
+        background-color: #ff6b6b;
+        color: white;
+    }
+
+        .btn-cancel:hover {
+            background-color: #e34a4a;
+        }
+
+    .btn-save {
+        background-color: #28a745;
+        color: white;
+    }
+
+        .btn-save:hover {
+            background-color: #218838;
+        }
+
+    .modal-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-box {
+        background-color: #ffffff;
+        padding: 2rem;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+        .modal-box h3 {
+            margin-top: 0;
+            font-size: 1.6rem;
+            color: #6f42c1;
+            margin-bottom: 1rem;
+        }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b3c82;
+        }
+
+    .form-control {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #f7f7fb;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .header-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+        .header-logo h1 {
+            margin: 0;
+            color: #6f42c1;
+            font-size: 2rem;
+        }
+
+    .logo-img {
+        height: 130px;
+        width: auto;
+    }
+
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+    }
+
+    .toast {
+        min-width: 300px;
+    }
+
+    .toast-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .toast-error {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
+    }
+</style>

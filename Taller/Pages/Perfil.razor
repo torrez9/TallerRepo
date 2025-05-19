@@ -1,0 +1,696 @@
+﻿@page "/perfil"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@using Taller.Models
+@layout MainLayout
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Mi Perfil</PageTitle>
+
+<div class="page-container">
+    <div class="profile-container">
+        <div class="profile-header">
+            <h2><i class="fas fa-user-circle"></i> Mi Perfil</h2>
+            <button class="btn-action" @onclick="ToggleEditMode">@(editMode ? "Cancelar" : "Editar Perfil")</button>
+        </div>
+
+        <div class="profile-content">
+            @if (editMode)
+            {
+                <EditForm Model="@usuarioActual" OnValidSubmit="@GuardarCambios">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="edit-form">
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Nombre</label>
+                            <InputText class="form-control" @bind-Value="usuarioActual.Nombre" />
+                            <ValidationMessage For="@(() => usuarioActual.Nombre)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Apellido</label>
+                            <InputText class="form-control" @bind-Value="usuarioActual.Apellido" />
+                            <ValidationMessage For="@(() => usuarioActual.Apellido)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-phone"></i> Teléfono</label>
+                            <InputNumber class="form-control" @bind-Value="usuarioActual.Telefono" />
+                            <ValidationMessage For="@(() => usuarioActual.Telefono)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-envelope"></i> Correo Electrónico</label>
+                            <InputText class="form-control" @bind-Value="usuarioActual.Correo" disabled />
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-at"></i> Nombre de Usuario</label>
+                            <InputText class="form-control" @bind-Value="usuarioActual.Usuario1" />
+                            <ValidationMessage For="@(() => usuarioActual.Usuario1)" />
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-save">Guardar Cambios</button>
+                            <button type="button" class="btn-cancel" @onclick="ToggleEditMode">Cancelar</button>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <div class="profile-info">
+                    <div class="info-row">
+                        <span class="info-label"><i class="fas fa-user"></i> Nombre:</span>
+                        <span class="info-value">@usuarioActual.Nombre</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label"><i class="fas fa-user"></i> Apellido:</span>
+                        <span class="info-value">@usuarioActual.Apellido</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label"><i class="fas fa-phone"></i> Teléfono:</span>
+                        <span class="info-value">@usuarioActual.Telefono</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label"><i class="fas fa-envelope"></i> Correo:</span>
+                        <span class="info-value">@usuarioActual.Correo</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label"><i class="fas fa-at"></i> Usuario:</span>
+                        <span class="info-value">@usuarioActual.Usuario1</span>
+                    </div>
+                </div>
+            }
+
+            <EditForm Model="@cambioContraseña" OnValidSubmit="@CambiarContraseña">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="password-section">
+                    <h3><i class="fas fa-lock"></i> Cambiar Contraseña</h3>
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Contraseña Actual</label>
+                        <InputText type="password" class="form-control" @bind-Value="cambioContraseña.ContraseñaActual" />
+                        <ValidationMessage For="@(() => cambioContraseña.ContraseñaActual)" />
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Nueva Contraseña</label>
+                        <InputText type="password" class="form-control" @bind-Value="cambioContraseña.NuevaContraseña" />
+                        <ValidationMessage For="@(() => cambioContraseña.NuevaContraseña)" />
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Confirmar Nueva Contraseña</label>
+                        <InputText type="password" class="form-control" @bind-Value="cambioContraseña.ConfirmarContraseña" />
+                        <ValidationMessage For="@(() => cambioContraseña.ConfirmarContraseña)" />
+                    </div>
+                    <button type="submit" class="btn-change-password btn-save">Cambiar Contraseña</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@if (mostrarNotificacion)
+{
+    <div class="toast-container">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header @(notificacionExito ? "toast-success" : "toast-error")">
+                <strong class="me-auto">@(notificacionExito ? "Éxito" : "Error")</strong>
+                <button type="button" class="btn-close" @onclick="CerrarNotificacion"></button>
+            </div>
+            <div class="toast-body">
+                @mensajeNotificacion
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Usuario usuarioActual = new Usuario();
+    private CambioContraseña cambioContraseña = new();
+    private bool editMode = false;
+    private string mensajeNotificacion = string.Empty;
+    private bool mostrarNotificacion = false;
+    private bool notificacionExito = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosUsuario();
+    }
+
+    private async Task CargarDatosUsuario()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            try
+            {
+                var response = await Http.GetAsync($"api/auth/user/{userId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    usuarioActual = await response.Content.ReadFromJsonAsync<Usuario>();
+                }
+                else
+                {
+                    MostrarNotificacion("Error al cargar los datos del usuario", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                MostrarNotificacion($"Error: {ex.Message}", false);
+            }
+        }
+        else
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private void ToggleEditMode()
+    {
+        editMode = !editMode;
+    }
+
+    private async Task GuardarCambios()
+    {
+        try
+        {
+            var request = new
+            {
+                Nombre = usuarioActual.Nombre,
+                Apellido = usuarioActual.Apellido,
+                Telefono = usuarioActual.Telefono,
+                NombreUsuario = usuarioActual.Usuario1
+            };
+
+            // Cambia esta línea para usar la ruta correcta
+            var response = await Http.PutAsJsonAsync($"api/auth/user/{usuarioActual.IdUsuario}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                MostrarNotificacion("Perfil actualizado correctamente", true);
+                editMode = false;
+
+                // Forzar actualización del layout
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"Error al actualizar: {error}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"Error: {ex.Message}", false);
+        }
+    }
+
+    //codigo original
+    // private async Task GuardarCambios()
+    // {
+    //     try
+    //     {
+    //         var request = new
+    //         {
+    //             Nombre = usuarioActual.Nombre,
+    //             Apellido = usuarioActual.Apellido,
+    //             Telefono = usuarioActual.Telefono,
+    //             NombreUsuario = usuarioActual.Usuario1
+    //         };
+
+    //         var response = await Http.PutAsJsonAsync($"api/usuarios/{usuarioActual.IdUsuario}", request);
+
+    //         if (response.IsSuccessStatusCode)
+    //         {
+    //             MostrarNotificacion("Perfil actualizado correctamente", true);
+    //             editMode = false;
+    //         }
+    //         else
+    //         {
+    //             var error = await response.Content.ReadAsStringAsync();
+    //             MostrarNotificacion($"Error al actualizar: {error}", false);
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         MostrarNotificacion($"Error: {ex.Message}", false);
+    //     }
+    // }
+
+    private async Task CambiarContraseña()
+    {
+        try
+        {
+            var request = new
+            {
+                UsuarioId = usuarioActual.IdUsuario,
+                ContraseñaActual = cambioContraseña.ContraseñaActual,
+                NuevaContraseña = cambioContraseña.NuevaContraseña,
+                ConfirmarContraseña = cambioContraseña.ConfirmarContraseña
+            };
+
+            var response = await Http.PostAsJsonAsync("api/auth/change-password", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                MostrarNotificacion("Contraseña cambiada exitosamente", true);
+                cambioContraseña = new CambioContraseña();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"Error: {error}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"Error: {ex.Message}", false);
+        }
+    }
+
+    private void MostrarNotificacion(string mensaje, bool exito)
+    {
+        mensajeNotificacion = mensaje;
+        notificacionExito = exito;
+        mostrarNotificacion = true;
+
+        Task.Run(async () =>
+        {
+            await Task.Delay(4000);
+            if (mostrarNotificacion)
+            {
+                await InvokeAsync(() =>
+                {
+                    mostrarNotificacion = false;
+                    StateHasChanged();
+                });
+            }
+        });
+    }
+
+    private void CerrarNotificacion() => mostrarNotificacion = false;
+
+    public class CambioContraseña
+    {
+        [Required(ErrorMessage = "La contraseña actual es requerida")]
+        public string ContraseñaActual { get; set; }
+
+        [Required(ErrorMessage = "La nueva contraseña es requerida")]
+        [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
+        public string NuevaContraseña { get; set; }
+
+        [Required(ErrorMessage = "La confirmación de contraseña es requerida")]
+        [Compare(nameof(NuevaContraseña), ErrorMessage = "Las contraseñas no coinciden")]
+        public string ConfirmarContraseña { get; set; }
+    }
+}
+<style>
+    .page-container {
+        padding: 2rem;
+        background-color: #f1f0fa;
+        color: #222;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    h1, h2, h3 {
+        color: #6f42c1;
+        margin-bottom: 1rem;
+    }
+
+    .appointments-table {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    th, td {
+        padding: 0.9rem 1rem;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+
+    th {
+        background-color: #e9e6fb;
+        color: #4b3c82;
+    }
+
+    td {
+        background-color: #fcfcff;
+    }
+
+    tr:hover {
+        background-color: #f0f3ff;
+        cursor: pointer;
+    }
+
+    .badge-count {
+        background-color: #6f42c1;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+
+    .badge-success {
+        background-color: #28a745;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .badge-warning {
+        background-color: #ffc107;
+        color: #333;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .badge-error {
+        background-color: #dc3545;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .badge-secondary {
+        background-color: #6c757d;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .filter-container {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+    }
+
+        .filter-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b3c82;
+        }
+
+    .form-control {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #f7f7fb;
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #f7f7fb;
+    }
+
+    .btn-reschedule, .btn-cancel, .btn-save, .btn-action {
+        padding: 0.6rem 1.2rem;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-reschedule {
+        background: linear-gradient(90deg, #ffcc70, #ffb347);
+        color: #333;
+    }
+
+        .btn-reschedule:hover {
+            background: linear-gradient(90deg, #f0b235, #e59b26);
+        }
+
+    .btn-action {
+        background-color: #e9e6fb;
+        color: #4b3c82;
+    }
+
+        .btn-action:hover {
+            background-color: #d8ccff;
+        }
+
+    .btn-cancel {
+        background-color: #ff6b6b;
+        color: white;
+    }
+
+        .btn-cancel:hover {
+            background-color: #e34a4a;
+        }
+
+    .btn-save {
+        background-color: #28a745;
+        color: white;
+    }
+
+        .btn-save:hover {
+            background-color: #218838;
+        }
+
+    .modal-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-box {
+        background-color: #ffffff;
+        padding: 2rem;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+        .modal-box h3 {
+            margin-top: 0;
+            font-size: 1.6rem;
+            color: #6f42c1;
+            margin-bottom: 1rem;
+        }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b3c82;
+        }
+
+    .search-box {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+        .search-box input {
+            flex: 1;
+        }
+
+    .client-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+
+    .list-item {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        background: none;
+        border: none;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+    }
+
+        .list-item:hover {
+            background-color: #f0f3ff;
+        }
+
+    .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        position: relative;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+    }
+
+    .close-btn {
+        position: absolute;
+        right: 0.5rem;
+        top: 0.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #155724;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .header-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+        .header-logo h1 {
+            margin: 0;
+            color: #6f42c1;
+            font-size: 2rem;
+        }
+
+    .logo-img {
+        height: 130px;
+        width: auto;
+    }
+
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+    }
+
+    .toast {
+        min-width: 300px;
+    }
+
+    .toast-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .toast-error {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    /* Estilos específicos para el perfil */
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .profile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .profile-info .info-row {
+        display: flex;
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background-color: #f7f7fb;
+        border-radius: 8px;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #4b3c82;
+        min-width: 150px;
+    }
+
+    .info-value {
+        color: #333;
+    }
+
+    .password-section {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9e6fb;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .btn-change-password {
+        width: 100%;
+        margin-top: 1rem;
+    }
+</style>
+

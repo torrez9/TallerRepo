@@ -1,0 +1,534 @@
+﻿@page "/"
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@layout LayoutLogin
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+
+<PageTitle>Login</PageTitle>
+
+<div class="fondo-login">
+    <div class="tarjeta-login">
+        <img src="images/logoblanco.png" alt="Logo" class="logo" />
+        <h2>¡Bienvenido a <span class="nombre-taller">Taller Motos Tuning</span>!</h2>
+        <p class="subtitulo">Ingresa tus credenciales para continuar</p>
+
+        <div class="grupo-formulario">
+            <label><i class="fas fa-envelope"></i></label>
+            <input type="email" class="campo" @bind="correo" placeholder="Correo electrónico" required />
+        </div>
+
+        <div class="grupo-formulario">
+            <label><i class="fas fa-lock"></i></label>
+            <input type="password" class="campo" @bind="contraseña" placeholder="Contraseña" required />
+        </div>
+
+        <button class="boton-login" @onclick="IniciarSesion">Iniciar Sesión</button>
+
+        <div class="opciones-login">
+            <small><a href="#" @onclick="AbrirModalRegistro">¿No tienes cuenta? Regístrate</a></small>
+            <small><a href="#" @onclick="AbrirModalRecuperacion">¿Olvidaste tu contraseña?</a></small>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de registro -->
+@if (mostrarModalRegistro)
+{
+    <div class="modal-background">
+        <div class="modal-box">
+            <h3><i class="fas fa-user-plus"></i> Registro de Usuario</h3>
+            
+            <div class="form-group">
+                <label><i class="fas fa-user"></i> Nombre*</label>
+                <input type="text" class="form-control" @bind="registro.Nombre" required />
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-user"></i> Apellido*</label>
+                <input type="text" class="form-control" @bind="registro.Apellido" required />
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-phone"></i> Teléfono*</label>
+                <input type="tel" class="form-control" @bind="registro.Telefono" required />
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-envelope"></i> Correo*</label>
+                <input type="email" class="form-control" @bind="registro.Correo" required />
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-at"></i> Nombre de Usuario*</label>
+                <input type="text" class="form-control" @bind="registro.NombreUsuario" required />
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-key"></i> Contraseña*</label>
+                <input type="password" class="form-control" @bind="registro.Contraseña" required />
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" @onclick="CerrarModalRegistro">Cancelar</button>
+                <button type="button" class="btn-save" @onclick="RegistrarUsuario">Crear cuenta</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de recuperación de contraseña -->
+@if (mostrarModalRecuperacion)
+{
+    <div class="modal-background">
+        <div class="modal-box">
+            <h3><i class="fas fa-key"></i> Restablecer Contraseña</h3>
+            
+            <div class="form-group">
+                <label><i class="fas fa-envelope"></i> Correo electrónico*</label>
+                <input type="email" class="form-control" @bind="correoRecuperacion" placeholder="Ingresa tu correo" required />
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" @onclick="CerrarModalRecuperacion">Cancelar</button>
+                <button type="button" class="btn-warning" @onclick="SolicitarRestablecimiento">Enviar nueva contraseña</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Notificación Toast -->
+@if (mostrarNotificacion)
+{
+    <div class="toast-container">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header @(notificacionExito ? "toast-success" : "toast-error")">
+                <strong class="me-auto">@(notificacionExito ? "Éxito" : "Error")</strong>
+                <button type="button" class="btn-close" @onclick="CerrarNotificacion"></button>
+            </div>
+            <div class="toast-body">
+                @mensaje
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string correo = string.Empty;
+    private string contraseña = string.Empty;
+    private bool mostrarModalRegistro = false;
+    private bool mostrarModalRecuperacion = false;
+    private string correoRecuperacion = string.Empty;
+
+    private Usuario registro = new();
+
+    private string mensaje = string.Empty;
+    private bool mostrarNotificacion = false;
+    private bool notificacionExito = false;
+
+    //iniciar sesion
+    private async Task IniciarSesion()
+    {
+        var loginData = new { Correo = correo, Contraseña = contraseña };
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/login", loginData);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var resultado = await response.Content.ReadFromJsonAsync<LoginResponse>();
+
+                // Usar el authManager para almacenar los datos
+                await JSRuntime.InvokeVoidAsync("authManager.storeUserData",
+                    resultado.Token,
+                    resultado.Usuario);
+
+                ((CustomAuthStateProvider)AuthStateProvider).NotifyUserAuthentication(resultado.Token);
+
+                MostrarNotificacion("✅ Login exitoso", true);
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/home");
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error al conectar: {ex.Message}", false);
+        }
+    }
+
+    //Registrar usuarios
+    private async Task RegistrarUsuario()
+    {
+        if (string.IsNullOrWhiteSpace(registro.Nombre) || string.IsNullOrWhiteSpace(registro.Correo) || string.IsNullOrWhiteSpace(registro.Contraseña))
+        {
+            MostrarNotificacion("❌ Todos los campos son obligatorios", false);
+            return;
+        }
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/register", registro);
+            if (response.IsSuccessStatusCode)
+            {
+                MostrarNotificacion("✅ Usuario registrado correctamente", true);
+                mostrarModalRegistro = false;
+                registro = new();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ {error}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error al registrar: {ex.Message}", false);
+        }
+    }
+
+    //Restablecer contra
+    private async Task SolicitarRestablecimiento()
+    {
+        if (string.IsNullOrWhiteSpace(correoRecuperacion))
+        {
+            MostrarNotificacion("❌ Por favor ingresa tu correo electrónico", false);
+            return;
+        }
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/reset-password", new { Email = correoRecuperacion });
+
+            if (response.IsSuccessStatusCode)
+            {
+                MostrarNotificacion("✅ Se ha enviado una nueva contraseña a tu correo electrónico", true);
+                mostrarModalRecuperacion = false;
+                correoRecuperacion = string.Empty;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ {error}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error al solicitar restablecimiento: {ex.Message}", false);
+        }
+    }
+
+    private void MostrarNotificacion(string mensajeNotificacion, bool exito)
+    {
+        mensaje = mensajeNotificacion;
+        notificacionExito = exito;
+        mostrarNotificacion = true;
+
+        Task.Run(async () =>
+        {
+            await Task.Delay(4000);
+            if (mostrarNotificacion)
+            {
+                await InvokeAsync(() =>
+                {
+                    mostrarNotificacion = false;
+                    StateHasChanged();
+                });
+            }
+        });
+    }
+
+    private void CerrarNotificacion() => mostrarNotificacion = false;
+    private void AbrirModalRegistro() => mostrarModalRegistro = true;
+    private void CerrarModalRegistro() => mostrarModalRegistro = false;
+    private void AbrirModalRecuperacion() => mostrarModalRecuperacion = true;
+    private void CerrarModalRecuperacion() => mostrarModalRecuperacion = false;
+
+    public class Usuario
+    {
+        public int IdUsuario { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Apellido { get; set; } = string.Empty;
+        public string Telefono { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public string NombreUsuario { get; set; } = string.Empty;
+        public string Contraseña { get; set; } = string.Empty;
+        public int IdRol { get; set; } = 2; // Equivale al del mecanico
+    }
+
+    public class LoginResponse
+    {
+        public string Mensaje { get; set; } = string.Empty;
+        public string Token { get; set; } = string.Empty;
+        public UsuarioResponse Usuario { get; set; } = new();
+    }
+
+    public class UsuarioResponse
+    {
+        public int IdUsuario { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public int IdRol { get; set; }
+        public string Rol { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .fondo-login {
+        background: white;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', sans-serif;
+        padding: 1rem;
+    }
+
+    .tarjeta-login {
+        background: #000000;
+        backdrop-filter: blur(6px);
+        padding: 2rem;
+        border-radius: 20px;
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+        color: #ffffff;
+        box-shadow: 0 0 20px rgba(128, 0, 255, 0.4);
+    }
+
+    .logo {
+        width: 150px;
+        height: 150px;
+        margin-bottom: 1rem;
+    }
+
+    .nombre-taller {
+        color: #b28df7;
+    }
+
+    .subtitulo {
+        font-size: 0.9rem;
+        color: #ccc;
+        margin-bottom: 1.5rem;
+    }
+
+    .grupo-formulario {
+        display: flex;
+        align-items: center;
+        background-color: #1e1e1e;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+    }
+
+    .grupo-formulario label {
+        color: #b28df7;
+        margin-right: 0.5rem;
+    }
+
+    .campo {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: white;
+        outline: none;
+    }
+
+    .boton-login {
+        background: linear-gradient(to right, #a067f7, #8d4eff);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem;
+        width: 100%;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 1rem;
+    }
+
+    .boton-login:hover {
+        opacity: 0.9;
+    }
+
+    .opciones-login {
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .opciones-login a {
+        color: #b28df7;
+        text-decoration: none;
+        font-size: 0.8rem;
+    }
+
+    .opciones-login a:hover {
+        text-decoration: underline;
+    }
+
+    /* Modal */
+    .modal-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-box {
+        background-color: #000000;
+        padding: 2rem;
+        border: 1px solid #333;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 16px rgba(128, 0, 255, 0.4);
+        color: white;
+    }
+
+    .modal-box h3 {
+        margin-top: 0;
+        font-size: 1.6rem;
+        color: #b28df7;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #b28df7;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 1rem;
+        border: 1px solid #333;
+        border-radius: 8px;
+        background-color: #2d2d2d;
+        color: white;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .btn-cancel, .btn-save, .btn-warning {
+        padding: 0.6rem 1.2rem;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-cancel {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        background-color: #5a6268;
+    }
+
+    .btn-save {
+        background: linear-gradient(to right, #a067f7, #8d4eff);
+        color: white;
+    }
+
+    .btn-save:hover {
+        opacity: 0.9;
+    }
+
+    .btn-warning {
+        background: linear-gradient(to right, #ffc107, #ffab00);
+        color: #333;
+    }
+
+    .btn-warning:hover {
+        opacity: 0.9;
+    }
+
+    /* Toast */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+    }
+
+    .toast {
+        min-width: 300px;
+        background-color: #2d2d2d;
+        border: 1px solid #444;
+    }
+
+    .toast-success {
+        border-left: 4px solid #28a745;
+    }
+
+    .toast-error {
+        border-left: 4px solid #dc3545;
+    }
+
+    .toast-header {
+        background-color: #333;
+        color: white;
+        border-bottom: 1px solid #444;
+    }
+
+    .toast-body {
+        color: #eee;
+    }
+
+    /* Responsivo */
+    @@media (max-width: 480px) {
+        .tarjeta-login {
+            padding: 1.5rem 1rem;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+        }
+
+        .subtitulo {
+            font-size: 0.85rem;
+        }
+
+        .boton-login {
+            font-size: 0.95rem;
+        }
+
+        .modal-box {
+            padding: 1.5rem;
+        }
+    }
+</style>

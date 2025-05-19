@@ -1,0 +1,727 @@
+﻿@page "/NuevaCita"
+@inject HttpClient Http
+@using Taller.Models
+@using System.Net.Http.Json
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Citas</PageTitle>
+
+<div class="page-container">
+    <div class="header-logo">
+        <img src="images/logotuning.png" alt="Logo Taller" class="logo-img" />
+        <h1>Citas Registradas</h1>
+    </div>
+
+    <div class="appointments-table">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <button class="btn-reschedule" @onclick="() => mostrarModal = true">
+                <i class="fas fa-plus"></i> Agregar Nueva Cita
+            </button>
+            <span class="badge-count">
+                Total: @(citasFiltradas?.Count ?? 0) @(filtroActivo ? "(filtradas)" : "")
+            </span>
+        </div>
+
+        <!-- Buscador por fechas -->
+        <div class="filter-container">
+            <div class="filter-group">
+                <label>Fecha desde</label>
+                <InputDate @bind-Value="fechaDesde" class="form-control" />
+            </div>
+            <div class="filter-group">
+                <label>Fecha hasta</label>
+                <InputDate @bind-Value="fechaHasta" class="form-control" />
+            </div>
+            <div class="filter-group">
+                <button class="btn-action" @onclick="FiltrarPorFecha">
+                    <i class="fas fa-filter"></i> Filtrar
+                </button>
+            </div>
+            <div class="filter-group">
+                <button class="btn-cancel" @onclick="LimpiarFiltros">
+                    <i class="fas fa-times"></i> Limpiar
+                </button>
+            </div>
+        </div>
+
+        @if (citas == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando citas...</p>
+            </div>
+        }
+        else if (!citasFiltradas.Any())
+        {
+            <p class="text-center text-muted">No hay citas registradas @(filtroActivo ? "para el rango de fechas seleccionado" : "")</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cita in citasFiltradasOrdenadas)
+                        {
+                            <tr>
+                                <td>@ObtenerNombreCliente(cita.IdCliente)</td>
+                                <td>@cita.FechaCita.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    @if (cita.Estado == "Confirmada")
+                                    {
+                                        <span class="badge-success">Confirmada</span>
+                                    }
+                                    else if (cita.Estado == "Pendiente")
+                                    {
+                                        <span class="badge-warning">Pendiente</span>
+                                    }
+                                    else if (cita.Estado == "Cancelada")
+                                    {
+                                        <span class="badge-error">Cancelada</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-secondary">@(string.IsNullOrWhiteSpace(cita.Estado) ? "Pendiente" : cita.Estado)</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal para agregar nueva cita -->
+<div class="modal-background @(mostrarModal ? "show" : "d-none")">
+    <div class="modal-box">
+        <h3>➕ Nueva Cita</h3>
+
+        <EditForm Model="nuevaCita" OnValidSubmit="AgregarCita">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-group">
+                <label>Buscar Cliente*</label>
+                <div class="search-box">
+                    <input type="text" class="form-control" @bind="terminoBusqueda" @bind:event="oninput"
+                           placeholder="Ingrese nombre del cliente" />
+                    <button class="btn-action" type="button" @onclick="BuscarClientes">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                @if (clientesFiltrados != null && clientesFiltrados.Any())
+                {
+                    <div class="client-list">
+                        @foreach (var cliente in clientesFiltrados)
+                        {
+                            <button type="button" class="list-item"
+                                    @onclick="() => SeleccionarCliente(cliente)">
+                                @cliente.Nombre
+                                @if (!string.IsNullOrEmpty(cliente.Telefono))
+                                {
+                                    <span class="text-muted">(@cliente.Telefono)</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(terminoBusqueda) && clientesFiltrados != null)
+                {
+                    <div class="alert-warning">No se encontraron clientes</div>
+                }
+
+                @if (clienteSeleccionado != null)
+                {
+                    <div class="alert-success">
+                        Cliente seleccionado: <strong>@clienteSeleccionado.Nombre</strong>
+                        <button type="button" class="close-btn" @onclick="DeseleccionarCliente">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <input type="hidden" @bind="nuevaCita.IdCliente" />
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Fecha y Hora de la Cita*</label>
+                <InputDate @bind-Value="nuevaCita.FechaCita" class="form-control" required />
+            </div>
+
+            <div class="form-group">
+                <label>Estado</label>
+                <InputSelect class="form-select" @bind-Value="nuevaCita.Estado">
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Confirmada">Confirmada</option>
+                    <option value="Cancelada">Cancelada</option>
+                </InputSelect>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" @onclick="CerrarModal">Cancelar</button>
+                <button type="submit" class="btn-save">Guardar Cita</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<!-- Notificación Toast -->
+@if (mostrarNotificacion)
+{
+    <div class="toast-container">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header @(notificacionExito ? "toast-success" : "toast-error")">
+                <strong class="me-auto">@(notificacionExito ? "Éxito" : "Error")</strong>
+                <button type="button" class="btn-close" @onclick="CerrarNotificacion"></button>
+            </div>
+            <div class="toast-body">
+                @mensaje
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Cita>? citas;
+    private List<Cita> citasFiltradas = new();
+    private List<Cliente>? clientes;
+    private List<Cliente>? clientesFiltrados;
+    private Cliente? clienteSeleccionado;
+    private string terminoBusqueda = string.Empty;
+    private DateTime? fechaDesde;
+    private DateTime? fechaHasta;
+    private bool filtroActivo = false;
+    private Cita nuevaCita = new()
+    {
+        FechaCita = DateTime.Now,
+        Estado = "Pendiente"
+    };
+    private string mensaje = "";
+    private bool mostrarModal = false;
+    private bool mostrarNotificacion = false;
+    private bool notificacionExito = false;
+
+    // Propiedades computadas
+    private IEnumerable<Cita> citasFiltradasOrdenadas => citasFiltradas.OrderByDescending(c => c.FechaCita);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarClientes();
+        await CargarCitas();
+    }
+
+    private async Task CargarCitas()
+    {
+        try
+        {
+            citas = await Http.GetFromJsonAsync<List<Cita>>("api/Citas");
+            citasFiltradas = citas?.ToList() ?? new List<Cita>();
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error al cargar citas: {ex.Message}", false);
+        }
+    }
+
+    private async Task CargarClientes()
+    {
+        try
+        {
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/Clientes");
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error al cargar clientes: {ex.Message}", false);
+        }
+    }
+
+    private void FiltrarPorFecha()
+    {
+        if (fechaDesde == null && fechaHasta == null)
+        {
+            MostrarNotificacion("❌ Seleccione al menos una fecha para filtrar", false);
+            return;
+        }
+
+        filtroActivo = true;
+        citasFiltradas = citas?.Where(c =>
+            (fechaDesde == null || c.FechaCita.Date >= fechaDesde.Value.Date) &&
+            (fechaHasta == null || c.FechaCita.Date <= fechaHasta.Value.Date)
+        ).ToList() ?? new List<Cita>();
+
+        if (!citasFiltradas.Any())
+        {
+            MostrarNotificacion("ℹ️ No se encontraron citas en el rango seleccionado", true);
+        }
+    }
+
+    private void LimpiarFiltros()
+    {
+        fechaDesde = null;
+        fechaHasta = null;
+        filtroActivo = false;
+        citasFiltradas = citas?.ToList() ?? new List<Cita>();
+    }
+
+    private async Task BuscarClientes()
+    {
+        if (string.IsNullOrWhiteSpace(terminoBusqueda))
+        {
+            clientesFiltrados = null;
+            return;
+        }
+
+        if (clientes != null)
+        {
+            clientesFiltrados = clientes
+                .Where(c => c.Nombre.Contains(terminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                             (c.Telefono != null && c.Telefono.Contains(terminoBusqueda)))
+                .ToList();
+        }
+    }
+
+    private void SeleccionarCliente(Cliente cliente)
+    {
+        clienteSeleccionado = cliente;
+        nuevaCita.IdCliente = cliente.IdCliente;
+        clientesFiltrados = null;
+        terminoBusqueda = string.Empty;
+    }
+
+    private void DeseleccionarCliente()
+    {
+        clienteSeleccionado = null;
+        nuevaCita.IdCliente = 0;
+    }
+
+    private async Task AgregarCita()
+    {
+        try
+        {
+            if (nuevaCita.IdCliente == 0)
+            {
+                MostrarNotificacion("❌ Debe seleccionar un cliente para la cita.", false);
+                return;
+            }
+
+            nuevaCita.IdClienteNavigation = null;
+
+            var response = await Http.PostAsJsonAsync("api/Citas", nuevaCita);
+            if (response.IsSuccessStatusCode)
+            {
+                MostrarNotificacion("✅ Cita agregada exitosamente.", true);
+
+                // Obtener la cita creada desde la respuesta
+                var citaCreada = await response.Content.ReadFromJsonAsync<Cita>();
+
+                // Agregar la nueva cita a la lista local
+                if (citaCreada != null)
+                {
+                    citas ??= new List<Cita>();
+                    citas.Insert(0, citaCreada);
+                    citasFiltradas.Insert(0, citaCreada);
+                }
+
+                // Resetear el formulario
+                nuevaCita = new()
+                {
+                    FechaCita = DateTime.Now,
+                    Estado = "Pendiente"
+                };
+                clienteSeleccionado = null;
+                mostrarModal = false;
+
+                StateHasChanged();
+            }
+            else
+            {
+                var contenidoError = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ Error al agregar cita: {response.ReasonPhrase}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error inesperado: {ex.Message}", false);
+        }
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        nuevaCita = new()
+        {
+            FechaCita = DateTime.Now,
+            Estado = "Pendiente"
+        };
+        clienteSeleccionado = null;
+        clientesFiltrados = null;
+        terminoBusqueda = string.Empty;
+    }
+
+    private void MostrarNotificacion(string mensajeNotificacion, bool exito)
+    {
+        mensaje = mensajeNotificacion;
+        notificacionExito = exito;
+        mostrarNotificacion = true;
+
+        Task.Run(async () =>
+        {
+            await Task.Delay(5000);
+            if (mostrarNotificacion)
+            {
+                await InvokeAsync(() =>
+                {
+                    mostrarNotificacion = false;
+                    StateHasChanged();
+                });
+            }
+        });
+    }
+
+    private void CerrarNotificacion()
+    {
+        mostrarNotificacion = false;
+    }
+
+    private string ObtenerNombreCliente(int idCliente)
+    {
+        return clientes?.FirstOrDefault(c => c.IdCliente == idCliente)?.Nombre ?? "Cliente desconocido";
+    }
+}
+
+<style>
+    .page-container {
+        padding: 2rem;
+        background-color: #f1f0fa;
+        color: #222;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    h1, h2, h3 {
+        color: #6f42c1;
+        margin-bottom: 1rem;
+    }
+
+    .appointments-table {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    th, td {
+        padding: 0.9rem 1rem;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+
+    th {
+        background-color: #e9e6fb;
+        color: #4b3c82;
+    }
+
+    td {
+        background-color: #fcfcff;
+    }
+
+    tr:hover {
+        background-color: #f0f3ff;
+        cursor: pointer;
+    }
+
+    .badge-count {
+        background-color: #6f42c1;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+
+    .badge-success {
+        background-color: #28a745;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .badge-warning {
+        background-color: #ffc107;
+        color: #333;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .badge-error {
+        background-color: #dc3545;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .badge-secondary {
+        background-color: #6c757d;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .filter-container {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+    }
+
+        .filter-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b3c82;
+        }
+
+    .form-control {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #f7f7fb;
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.6rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #f7f7fb;
+    }
+
+    .btn-reschedule, .btn-cancel, .btn-save, .btn-action {
+        padding: 0.6rem 1.2rem;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-reschedule {
+        background: linear-gradient(90deg, #ffcc70, #ffb347);
+        color: #333;
+    }
+
+        .btn-reschedule:hover {
+            background: linear-gradient(90deg, #f0b235, #e59b26);
+        }
+
+    .btn-action {
+        background-color: #e9e6fb;
+        color: #4b3c82;
+    }
+
+        .btn-action:hover {
+            background-color: #d8ccff;
+        }
+
+    .btn-cancel {
+        background-color: #ff6b6b;
+        color: white;
+    }
+
+        .btn-cancel:hover {
+            background-color: #e34a4a;
+        }
+
+    .btn-save {
+        background-color: #28a745;
+        color: white;
+    }
+
+        .btn-save:hover {
+            background-color: #218838;
+        }
+
+    .modal-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-box {
+        background-color: #ffffff;
+        padding: 2rem;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+        .modal-box h3 {
+            margin-top: 0;
+            font-size: 1.6rem;
+            color: #6f42c1;
+            margin-bottom: 1rem;
+        }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b3c82;
+        }
+
+    .search-box {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+        .search-box input {
+            flex: 1;
+        }
+
+    .client-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+
+    .list-item {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        background: none;
+        border: none;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+    }
+
+        .list-item:hover {
+            background-color: #f0f3ff;
+        }
+
+    .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        position: relative;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+    }
+
+    .close-btn {
+        position: absolute;
+        right: 0.5rem;
+        top: 0.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #155724;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .header-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+        .header-logo h1 {
+            margin: 0;
+            color: #6f42c1;
+            font-size: 2rem;
+        }
+
+    .logo-img {
+        height: 130px;
+        width: auto;
+    }
+
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+    }
+
+    .toast {
+        min-width: 300px;
+    }
+
+    .toast-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .toast-error {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+</style>
