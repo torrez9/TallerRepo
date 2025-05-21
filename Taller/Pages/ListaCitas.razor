@@ -31,6 +31,17 @@
             </div>
         </div>
 
+        <!-- BOTONES DE EXPORTACIÓN -->
+        <div class="export-buttons mb-4" style="display:flex; gap:1rem; justify-content:flex-end;">
+            @* <button class="btn btn-success" @onclick="ExportarExcel">
+                <i class="fas fa-file-excel"></i> Exportar Gráficos a Excel
+            </button> *@
+            <button class="btn btn-danger" @onclick="ExportarPDF">
+                <i class="fas fa-file-pdf"></i> Exportar Gráficos a PDF
+            </button>
+        </div>
+        <!-- FIN BOTONES -->
+
         @if (citas == null || clientes == null)
         {
             <div class="text-center">
@@ -142,6 +153,7 @@
     </div>
 </div>
 
+
 @code {
     private List<Cita>? citas;
     private List<Cliente>? clientes;
@@ -215,7 +227,19 @@
         }
     }
 
-    // Craga de graficos
+    //Exportar
+    private async Task ExportarExcel()
+    {
+        await JSRuntime.InvokeVoidAsync("exportarGraficosExcel");
+    }
+
+    private async Task ExportarPDF()
+    {
+        await JSRuntime.InvokeVoidAsync("exportarGraficosPDF");
+    }
+
+
+    // carga de graficos
     private async Task CargarGraficosDesdeAPI()
     {
         try

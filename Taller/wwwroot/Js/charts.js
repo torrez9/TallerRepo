@@ -179,4 +179,145 @@ function crearGraficoClientes(labels, data) {
             plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} citas` } } }
         }
     });
+
+    //graficos excel
+    window.exportarGraficosExcel = function () {
+        let wb = XLSX.utils.book_new();
+
+        function crearHojaConEstilo(titulo, encabezados, filas, color) {
+            let hoja = [encabezados, ...filas];
+            let ws = XLSX.utils.aoa_to_sheet(hoja);
+
+            // Agrega un título encima
+            XLSX.utils.sheet_add_aoa(ws, [[titulo]], { origin: "A1" });
+
+            // Formato de encabezados (segunda fila)
+            if (!ws["!cols"]) ws["!cols"] = [];
+            encabezados.forEach((_, i) => ws["!cols"].push({ wch: 22 }));
+
+            // Formato personalizado usando cell styles (requiere SheetJS Pro para todo el potencial, aquí lo hacemos básico)
+            encabezados.forEach((_, i) => {
+                let cellRef = XLSX.utils.encode_cell({ c: i, r: 1 });
+                if (ws[cellRef]) ws[cellRef].s = { fill: { fgColor: { rgb: color } }, font: { bold: true } };
+            });
+
+            return ws;
+        }
+
+        // 1. Estados
+        let estadosChart = Chart.getChart('estadosChart');
+        if (estadosChart) {
+            let filas = estadosChart.data.labels.map((label, idx) => [label, estadosChart.data.datasets[0].data[idx]]);
+            let ws = crearHojaConEstilo("Resumen de Estados de Citas", ["Estado", "Total"], filas, "A9D08E");
+            XLSX.utils.book_append_sheet(wb, ws, "Estados");
+        }
+
+        // 2. Meses
+        let mesesChart = Chart.getChart('citasMesChart');
+        if (mesesChart) {
+            let filas = mesesChart.data.labels.map((label, idx) => [label, mesesChart.data.datasets[0].data[idx]]);
+            let ws = crearHojaConEstilo("Resumen de Citas por Mes", ["Mes", "Total"], filas, "FFD966");
+            XLSX.utils.book_append_sheet(wb, ws, "CitasMes");
+        }
+
+        // 3. Clientes
+        let clientesChart = Chart.getChart('clientesChart');
+        if (clientesChart) {
+            let filas = clientesChart.data.labels.map((label, idx) => [label, clientesChart.data.datasets[0].data[idx]]);
+            let ws = crearHojaConEstilo("Top 10 Clientes", ["Cliente", "Total Citas"], filas, "9DC3E6");
+            XLSX.utils.book_append_sheet(wb, ws, "TopClientes");
+        }
+
+        XLSX.writeFile(wb, "GraficosCitas.xlsx");
+    };
+
+    //graficos PDF
+    window.exportarGraficosPDF = function () {
+        const { jsPDF } = window.jspdf;
+        let doc = new jsPDF("landscape");
+
+        // --- PORTADA ---
+        let y = 25;
+        let logoImg = new Image();
+        logoImg.src = "/images/logotuning.png"; // Ajusta la ruta si necesitas
+
+        logoImg.onload = function () {
+            // LOGO grande y centrado
+            doc.addImage(logoImg, "PNG", 120, y, 50, 50); // Ajusta x, y, w, h si quieres
+
+            // TÍTULO y DESCRIPCIÓN centrados
+            doc.setFontSize(22);
+            doc.setTextColor("#222");
+            doc.text("Reporte de Citas Agendadas", 148, y + 65, { align: "center" });
+
+            doc.setFontSize(14);
+            doc.setTextColor("#444");
+            doc.text("Taller Motos Tuning", 148, y + 75, { align: "center" });
+            doc.setFontSize(11);
+            doc.setTextColor("#333");
+            doc.text("Especialistas en servicios, diagnósticos y modificaciones de motos.", 148, y + 83, { align: "center" });
+            doc.text("Dirección: Avenida Principal #123, León, Nicaragua. Tel: 8888-0000", 148, y + 91, { align: "center" });
+
+            // Fecha de reporte
+            doc.setFontSize(10);
+            doc.setTextColor("#888");
+            doc.text("Fecha: " + (new Date()).toLocaleDateString(), 258, 200);
+
+            // ---- GRÁFICOS EN PÁGINAS SEPARADAS ----
+
+            // 1. ESTADOS
+            doc.addPage();
+            y = 20;
+            addChartToPDF("estadosChart", "Estados de las Citas", "#28a745");
+
+            // 2. CITAS POR MES
+            doc.addPage();
+            y = 20;
+            addChartToPDF("citasMesChart", "Citas por Mes", "#ffc107");
+
+            // 3. TOP CLIENTES
+            doc.addPage();
+            y = 20;
+            addChartToPDF("clientesChart", "Top 10 Clientes con más Citas", "#0070C0");
+
+            // PIE DE PÁGINA en todas las páginas
+            let pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(10);
+                doc.setTextColor("#888");
+                doc.text("Reporte generado por el Sistema de Taller Motos Tuning - " + (new Date()).toLocaleDateString(), 15, 200);
+                doc.text(`Página ${i} de ${pageCount}`, 270, 200, { align: "right" });
+            }
+
+            doc.save("GraficosCitas.pdf");
+        };
+
+        // Si ya está en caché
+        if (logoImg.complete) logoImg.onload();
+
+        // Función auxiliar para insertar gráfico con su título
+        function addChartToPDF(chartId, title, color) {
+            let chart = document.getElementById(chartId);
+            let chartInstance = Chart.getChart(chartId);
+            if (chart && chartInstance) {
+                doc.setFontSize(16);
+                doc.setTextColor(color);
+                doc.text(title, 148, y + 10, { align: "center" });
+
+                // Gráfico como imagen, centrado y con borde
+                let img = chart.toDataURL("image/png", 1.0);
+                let imgWidth = 180, imgHeight = 80, x = (297 - imgWidth) / 2;
+                doc.setDrawColor(180, 180, 180);
+                doc.rect(x - 3, y + 16, imgWidth + 6, imgHeight + 6, "S");
+                doc.addImage(img, "PNG", x, y + 19, imgWidth, imgHeight);
+
+                // Puedes agregar debajo una breve explicación si deseas:
+                // doc.setFontSize(11);
+                // doc.setTextColor("#222");
+                // doc.text("Descripción corta de este gráfico...", 148, y + 110, { align: "center" });
+            }
+        }
+    };
+
 }
