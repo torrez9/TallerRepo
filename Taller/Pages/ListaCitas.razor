@@ -1,7 +1,6 @@
 ﻿@page "/ListaCitas"
 @inject HttpClient Http
 @using Taller.Models
-@using System.Globalization
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Citas Agendadas</PageTitle>
@@ -20,15 +19,15 @@
             </div>
             <div class="stat-card confirmadas">
                 <span class="stat-label">Confirmadas:</span>
-                <span class="stat-value">@(citas?.Count(c => c.Estado == "Confirmada") ?? 0)</span>
+                <span class="stat-value">@confirmadas</span>
             </div>
             <div class="stat-card pendientes">
                 <span class="stat-label">Pendientes:</span>
-                <span class="stat-value">@(citas?.Count(c => c.Estado == "Pendiente") ?? 0)</span>
+                <span class="stat-value">@pendientes</span>
             </div>
             <div class="stat-card canceladas">
                 <span class="stat-label">Canceladas:</span>
-                <span class="stat-value">@(citas?.Count(c => c.Estado == "Cancelada") ?? 0)</span>
+                <span class="stat-value">@canceladas</span>
             </div>
         </div>
 
@@ -112,26 +111,25 @@
                             @foreach (var cita in citas)
                             {
                                 var nombreCliente = clientes.FirstOrDefault(c => c.IdCliente == cita.IdCliente)?.Nombre ?? "Desconocido";
-
                                 <tr>
                                     <td>@nombreCliente</td>
                                     <td>@cita.FechaCita.ToString("dd/MM/yyyy HH:mm")</td>
                                     <td>
                                         @if (cita.Estado == "Confirmada")
                                         {
-                                            <span class="badge bg-success">Confirmada</span>
+                                            <span class="badge-success">Confirmada</span>
                                         }
                                         else if (cita.Estado == "Pendiente")
                                         {
-                                            <span class="badge bg-warning">Pendiente</span>
+                                            <span class="badge-warning">Pendiente</span>
                                         }
                                         else if (cita.Estado == "Cancelada")
                                         {
-                                            <span class="badge bg-danger">Cancelada</span>
+                                            <span class="badge-error">Cancelada</span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary">@cita.Estado</span>
+                                            <span class="badge-secondary">@cita.Estado</span>
                                         }
                                     </td>
                                 </tr>
@@ -150,14 +148,17 @@
     private List<ClienteCitas> topClientes = new List<ClienteCitas>();
     private DotNetObjectReference<ListaCitas>? objRef;
 
+    // Variables para los gráficos
+    private int confirmadas = 0;
+    private int pendientes = 0;
+    private int canceladas = 0;
+
     protected override async Task OnInitializedAsync()
     {
         await CargarClientes();
         await CargarCitas();
-
         if (citas != null && clientes != null)
         {
-            // Calcular el top de clientes con más citas
             topClientes = clientes
                 .Select(cliente => new ClienteCitas
                 {
@@ -180,10 +181,9 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && citas != null && clientes != null)
+        if (firstRender)
         {
-            objRef = DotNetObjectReference.Create(this);
-            await CargarGraficos();
+            await CargarGraficosDesdeAPI();
         }
     }
 
@@ -204,7 +204,6 @@
         try
         {
             citas = await Http.GetFromJsonAsync<List<Cita>>("https://localhost:7003/api/Citas");
-
             if (citas != null)
             {
                 citas = citas.OrderBy(c => c.IdCita).ToList();
@@ -216,72 +215,65 @@
         }
     }
 
-    private async Task CargarGraficos()
-{
-    if (citas == null || clientes == null) return;
-
-    // Datos para el gráfico de estados
-    var estados = new Dictionary<string, int>
+    // Craga de graficos
+    private async Task CargarGraficosDesdeAPI()
     {
-        { "Confirmada", citas.Count(c => c.Estado == "Confirmada") },
-        { "Pendiente", citas.Count(c => c.Estado == "Pendiente") },
-        { "Cancelada", citas.Count(c => c.Estado == "Cancelada") }
-    };
-
-    // Datos para el gráfico por mes (últimos 6 meses)
-    var fechaActual = DateTime.Now;
-    var citasRecientes = citas.Where(c => c.FechaCita >= fechaActual.AddMonths(-6));
-    
-    var citasPorMes = citasRecientes
-        .GroupBy(c => new { c.FechaCita.Year, c.FechaCita.Month })
-        .OrderBy(g => g.Key.Year)
-        .ThenBy(g => g.Key.Month)
-        .Select(g => new
+        try
         {
-            Mes = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(g.Key.Month) + " " + g.Key.Year,
-            Cantidad = g.Count()
-        })
-        .ToList();
+            // 1. Estados
+            var estadosData = await Http.GetFromJsonAsync<List<EstadoResumen>>("https://localhost:7003/api/Graficos/EstadosCitas");
+            var estadosLabels = estadosData.Select(e => e.Estado).ToArray();
+            var estadosTotals = estadosData.Select(e => e.Total).ToArray();
 
-    // Si no hay datos para los últimos 6 meses, mostramos los disponibles
-    if (!citasPorMes.Any() && citas.Any())
-    {
-        citasPorMes = citas
-            .GroupBy(c => new { c.FechaCita.Year, c.FechaCita.Month })
-            .OrderBy(g => g.Key.Year)
-            .ThenBy(g => g.Key.Month)
-            .Select(g => new
-            {
-                Mes = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(g.Key.Month) + " " + g.Key.Year,
-                Cantidad = g.Count()
-            })
-            .ToList();
+            // Guardar los valores en variables para los stats cards
+            confirmadas = estadosData.FirstOrDefault(e => e.Estado == "Confirmada")?.Total ?? 0;
+            pendientes = estadosData.FirstOrDefault(e => e.Estado == "Pendiente")?.Total ?? 0;
+            canceladas = estadosData.FirstOrDefault(e => e.Estado == "Cancelada")?.Total ?? 0;
+
+            // 2. Meses
+            var mesesData = await Http.GetFromJsonAsync<List<MesResumen>>("https://localhost:7003/api/Graficos/CitasPorMes");
+            var mesesLabels = mesesData.Select(m => m.Mes).ToArray();
+            var mesesTotals = mesesData.Select(m => m.Cantidad).ToArray();
+
+            // 3. Top Clientes
+            var clientesData = await Http.GetFromJsonAsync<List<ClienteResumen>>("https://localhost:7003/api/Graficos/TopClientes");
+            var clientesLabels = clientesData.Select(c => c.Nombre).ToArray();
+            var clientesTotals = clientesData.Select(c => c.TotalCitas).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("crearGraficos",
+                estadosLabels, estadosTotals,
+                mesesLabels, mesesTotals,
+                clientesLabels, clientesTotals);
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error cargando datos para gráficos: " + ex.Message);
+        }
     }
-
-    // Datos para el gráfico de clientes (top 10)
-    var clientesConMasCitas = clientes
-        .Select(cliente => new
-        {
-            Nombre = cliente.Nombre.Length > 20 ? cliente.Nombre.Substring(0, 17) + "..." : cliente.Nombre,
-            TotalCitas = citas.Count(c => c.IdCliente == cliente.IdCliente)
-        })
-        .Where(c => c.TotalCitas > 0)
-        .OrderByDescending(c => c.TotalCitas)
-        .Take(10)
-        .ToList();
-
-    await JSRuntime.InvokeVoidAsync("crearGraficos", 
-        estados.Keys.ToArray(),
-        estados.Values.ToArray(),
-        citasPorMes.Select(c => c.Mes).ToArray(),
-        citasPorMes.Select(c => c.Cantidad).ToArray(),
-        clientesConMasCitas.Select(c => c.Nombre).ToArray(),
-        clientesConMasCitas.Select(c => c.TotalCitas).ToArray());
-}
 
     public void Dispose()
     {
         objRef?.Dispose();
+    }
+
+    // Modelos temporales para los endpoints de gráficos
+    public class EstadoResumen
+    {
+        public string Estado { get; set; }
+        public int Total { get; set; }
+    }
+    public class MesResumen
+    {
+        public string Mes { get; set; }
+        public int Cantidad { get; set; }
+    }
+    public class ClienteResumen
+    {
+        public int IdCliente { get; set; }
+        public string Nombre { get; set; }
+        public int TotalCitas { get; set; }
     }
 
     public class ClienteCitas
@@ -294,6 +286,7 @@
         public int CitasCanceladas { get; set; }
     }
 }
+
 
 
 <style>

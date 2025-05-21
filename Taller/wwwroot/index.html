@@ -1,26 +1,21 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="js/authManager.js"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Sistema de gestión de taller mecánico" />
     <title>Taller Mecánico</title>
     <base href="/" />
 
-    <!-- Bootstrap CSS & JS -->
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Font Awesome (para los iconos <i class="fas fa-...">) -->
+    <!-- Font Awesome (iconos) -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
           integrity="sha512-pVI6YPOOErnIQ0Nw+uYzQZ9UxhmGnbltnq84SgqR+M8x3j5+6fCVF96GvP4q0bLZt+ZnG6yZj8Ym+ue60XHhag=="
           crossorigin="anonymous"
           referrerpolicy="no-referrer" />
-
-    <!-- Chart.js (librería) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
 
     <!-- Estilos locales -->
     <link rel="stylesheet" href="css/app.css" />
@@ -47,11 +42,22 @@
         <a class="dismiss">🗙</a>
     </div>
 
+    <!-- Bootstrap JS (necesario para algunos componentes, después de jQuery si lo usas) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script de autenticación (si lo usas) -->
+    <script src="js/authManager.js"></script>
+
+    <!-- Chart.js (LIBRERÍA, SOLO UNA VEZ Y LA CORRECTA) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+
+    <!-- Tu script de gráficos personalizado, después de Chart.js -->
+    <script src="js/charts.js" asp-append-version="true"></script>
+
+    <!-- (Opcional) Otro script JS tuyo (si es necesario, por ejemplo, graficos.js) -->
+    <!--<script src="js/graficos.js"></script>-->
     <!-- Blazor WebAssembly -->
     <script src="_framework/blazor.webassembly.js"></script>
-
-    <!-- Tu script de gráficos (usa ahora Chart.js) -->
-    <script src="/js/charts.js" asp-append-version="true"></script>
 
     <!-- Service Worker -->
     <script>

@@ -1,6 +1,4 @@
-﻿// wwwroot/js/charts.js
-
-// 1) CSS dinámico
+﻿// 1) CSS dinámico
 const style = document.createElement('style');
 style.textContent = `
     .charts-container {
@@ -52,30 +50,45 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// 2) Helper para verificar Chart.js
+// Helper para verificar Chart.js
 function inicializarChartJs() {
     if (typeof Chart === 'undefined') {
         console.error('Chart.js NO está cargado');
         return false;
     }
-    console.log('✅ Chart.js detectado');
     return true;
 }
 
-// 3) Función expuesta
+// Limpiar gráficos anteriores (para evitar overlays)
+function limpiarGraficos() {
+    ['estadosChart', 'citasMesChart', 'clientesChart'].forEach(id => {
+        const c = document.getElementById(id);
+        if (c && c._chartInstance) {
+            c._chartInstance.destroy();
+            c._chartInstance = null;
+        }
+    });
+}
+
 window.crearGraficos = function (estLabels, estData, mesLabels, mesData, cliLabels, cliData) {
-    console.log('▶️ crearGraficos invoked', { estLabels, estData, mesLabels, mesData, cliLabels, cliData });
+    console.log('crearGraficos llamado con:', { estLabels, estData, mesLabels, mesData, cliLabels, cliData });
 
     if (!inicializarChartJs()) return;
+
+    // Verificar existencia de canvas
+    ['estadosChart', 'citasMesChart', 'clientesChart'].forEach(id => {
+        const c = document.getElementById(id);
+        if (!c) console.error('No existe el canvas con ID:', id);
+    });
 
     mostrarMensajesCarga();
 
     setTimeout(() => {
+        limpiarGraficos();
         crearGraficoEstados(estLabels, estData);
         crearGraficoMeses(mesLabels, mesData);
         crearGraficoClientes(cliLabels, cliData);
         ocultarMensajesCarga();
-        console.log('✅ Gráficos renderizados');
     }, 50);
 };
 
@@ -98,9 +111,10 @@ function ocultarMensajesCarga() {
 
 function crearGraficoEstados(labels, data) {
     const canvas = document.getElementById('estadosChart');
-    if (!canvas) return console.warn('estadosChart no encontrado');
+    if (!canvas) return;
+    if (canvas._chartInstance) canvas._chartInstance.destroy();
     const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
+    canvas._chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: { labels, datasets: [{ data, backgroundColor: ['#28a745', '#ffc107', '#dc3545'], borderWidth: 1 }] },
         options: {
@@ -116,9 +130,10 @@ function crearGraficoEstados(labels, data) {
 
 function crearGraficoMeses(labels, data) {
     const canvas = document.getElementById('citasMesChart');
-    if (!canvas) return console.warn('citasMesChart no encontrado');
+    if (!canvas) return;
+    if (canvas._chartInstance) canvas._chartInstance.destroy();
     const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
+    canvas._chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels,
@@ -141,9 +156,10 @@ function crearGraficoMeses(labels, data) {
 
 function crearGraficoClientes(labels, data) {
     const canvas = document.getElementById('clientesChart');
-    if (!canvas) return console.warn('clientesChart no encontrado');
+    if (!canvas) return;
+    if (canvas._chartInstance) canvas._chartInstance.destroy();
     const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
+    canvas._chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels,
