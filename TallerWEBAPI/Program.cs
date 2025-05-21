@@ -18,8 +18,6 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddTransient<EmailService>();
 
 
-
-
 // Configuración de autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);

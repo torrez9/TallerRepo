@@ -1,22 +1,26 @@
-﻿// Crear y agregar estilos dinámicamente
+﻿// wwwroot/js/charts.js
+
+// 1) CSS dinámico
 const style = document.createElement('style');
 style.textContent = `
+    .charts-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
     .chart-card {
         position: relative;
-        min-height: 300px;
         background-color: #ffffff;
         border-radius: 15px;
         padding: 1.5rem;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        margin-bottom: 1.5rem;
     }
-
     .chart-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 6px 16px rgba(0,0,0,0.12);
     }
-
     .chart-card h3 {
         margin-top: 0;
         color: #6f42c1;
@@ -25,17 +29,14 @@ style.textContent = `
         border-bottom: 1px solid #eee;
         margin-bottom: 1.5rem;
     }
-
     .chart-wrapper {
         position: relative;
         height: 100%;
         min-height: 300px;
     }
-
     .chart-card.full-width .chart-wrapper {
         min-height: 400px;
     }
-
     .chart-loading {
         position: absolute;
         top: 50%;
@@ -44,112 +45,86 @@ style.textContent = `
         color: #6c757d;
         font-style: italic;
     }
-
     @media (max-width: 768px) {
-        .chart-card {
-            min-width: 100%;
-        }
-        
-        .chart-wrapper {
-            height: 250px;
-        }
+        .chart-card { width: 100%; }
+        .chart-wrapper { min-height: 250px; }
     }
 `;
 document.head.appendChild(style);
 
-// Función para inicializar Chart.js
+// 2) Helper para verificar Chart.js
 function inicializarChartJs() {
     if (typeof Chart === 'undefined') {
-        console.error('Chart.js no está cargado correctamente');
+        console.error('Chart.js NO está cargado');
         return false;
     }
+    console.log('✅ Chart.js detectado');
     return true;
 }
 
-// Función principal para crear los gráficos
-window.crearGraficos = function (estadosLabels, estadosData, mesesLabels, mesesData, clientesLabels, clientesData) {
-    if (!inicializarChartJs()) {
-        console.error('No se pueden crear gráficos: Chart.js no está disponible');
-        return;
-    }
+// 3) Función expuesta
+window.crearGraficos = function (estLabels, estData, mesLabels, mesData, cliLabels, cliData) {
+    console.log('▶️ crearGraficos invoked', { estLabels, estData, mesLabels, mesData, cliLabels, cliData });
 
-    // Mostrar mensajes de carga mientras se renderizan los gráficos
+    if (!inicializarChartJs()) return;
+
     mostrarMensajesCarga();
 
-    // Crear gráficos con un pequeño retraso para asegurar la renderización
     setTimeout(() => {
-        crearGraficoEstados(estadosLabels, estadosData);
-        crearGraficoMeses(mesesLabels, mesesData);
-        crearGraficoClientes(clientesLabels, clientesData);
-
-        // Ocultar mensajes de carga
+        crearGraficoEstados(estLabels, estData);
+        crearGraficoMeses(mesLabels, mesData);
+        crearGraficoClientes(cliLabels, cliData);
         ocultarMensajesCarga();
+        console.log('✅ Gráficos renderizados');
     }, 50);
 };
 
 function mostrarMensajesCarga() {
-    const charts = ['estadosChart', 'citasMesChart', 'clientesChart'];
-    charts.forEach(id => {
+    ['estadosChart', 'citasMesChart', 'clientesChart'].forEach(id => {
         const canvas = document.getElementById(id);
-        if (canvas) {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'chart-loading';
-            loadingDiv.textContent = 'Cargando gráfico...';
-            loadingDiv.id = `loading-${id}`;
-            canvas.parentNode.appendChild(loadingDiv);
+        if (canvas && !document.getElementById(`loading-${id}`)) {
+            const loading = document.createElement('div');
+            loading.className = 'chart-loading';
+            loading.id = `loading-${id}`;
+            loading.textContent = 'Cargando gráfico…';
+            canvas.parentNode.appendChild(loading);
         }
     });
 }
 
 function ocultarMensajesCarga() {
-    const loadings = document.querySelectorAll('.chart-loading');
-    loadings.forEach(loading => loading.remove());
+    document.querySelectorAll('.chart-loading').forEach(el => el.remove());
 }
 
 function crearGraficoEstados(labels, data) {
-    const ctx = document.getElementById('estadosChart');
-    if (!ctx) return;
-
+    const canvas = document.getElementById('estadosChart');
+    if (!canvas) return console.warn('estadosChart no encontrado');
+    const ctx = canvas.getContext('2d');
     new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
-                borderWidth: 1
-            }]
-        },
+        data: { labels, datasets: [{ data, backgroundColor: ['#28a745', '#ffc107', '#dc3545'], borderWidth: 1 }] },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return `${context.label}: ${context.raw} citas`;
-                        }
-                    }
-                }
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} citas` } }
             }
         }
     });
 }
 
 function crearGraficoMeses(labels, data) {
-    const ctx = document.getElementById('citasMesChart');
-    if (!ctx) return;
-
+    const canvas = document.getElementById('citasMesChart');
+    if (!canvas) return console.warn('citasMesChart no encontrado');
+    const ctx = canvas.getContext('2d');
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: 'Citas',
-                data: data,
+                data,
                 backgroundColor: '#6f42c1',
                 borderColor: '#4b3c82',
                 borderWidth: 1
@@ -158,38 +133,23 @@ function crearGraficoMeses(labels, data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return `${context.raw} citas en ${context.label}`;
-                        }
-                    }
-                }
-            }
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { tooltip: { callbacks: { label: ctx => `${ctx.raw} citas en ${ctx.label}` } } }
         }
     });
 }
 
 function crearGraficoClientes(labels, data) {
-    const ctx = document.getElementById('clientesChart');
-    if (!ctx) return;
-
+    const canvas = document.getElementById('clientesChart');
+    if (!canvas) return console.warn('clientesChart no encontrado');
+    const ctx = canvas.getContext('2d');
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: 'Citas',
-                data: data,
+                data,
                 backgroundColor: '#6f42c1',
                 borderColor: '#4b3c82',
                 borderWidth: 1
@@ -199,26 +159,8 @@ function crearGraficoClientes(labels, data) {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return `${context.raw} citas`;
-                        }
-                    }
-                }
-            }
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} citas` } } }
         }
     });
 }
