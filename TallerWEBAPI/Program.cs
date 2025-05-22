@@ -113,7 +113,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");  // <<--- DEBE IR ANTES DE UseAuthentication y UseAuthorization
+app.UseCors("AllowAll");  
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
