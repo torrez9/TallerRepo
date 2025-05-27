@@ -219,8 +219,8 @@
     private bool mostrarNotificacion = false;
     private bool notificacionExito = false;
 
-    // Propiedades computadas
-    private IEnumerable<Cita> citasFiltradasOrdenadas => citasFiltradas.OrderByDescending(c => c.FechaCita);
+    // Propiedades computadas - Modificado para ordenar por IdCita descendente (más recientes primero)
+    private IEnumerable<Cita> citasFiltradasOrdenadas => citasFiltradas.OrderByDescending(c => c.IdCita);
 
     protected override async Task OnInitializedAsync()
     {
@@ -233,6 +233,8 @@
         try
         {
             citas = await Http.GetFromJsonAsync<List<Cita>>("api/Citas");
+            // Ordenar las citas por IdCita descendente al cargarlas
+            citas = citas?.OrderByDescending(c => c.IdCita).ToList();
             citasFiltradas = citas?.ToList() ?? new List<Cita>();
         }
         catch (Exception ex)
@@ -265,7 +267,8 @@
         citasFiltradas = citas?.Where(c =>
             (fechaDesde == null || c.FechaCita.Date >= fechaDesde.Value.Date) &&
             (fechaHasta == null || c.FechaCita.Date <= fechaHasta.Value.Date)
-        ).ToList() ?? new List<Cita>();
+        ).OrderByDescending(c => c.IdCita) // Mantener el orden al filtrar
+        .ToList() ?? new List<Cita>();
 
         if (!citasFiltradas.Any())
         {
@@ -336,6 +339,7 @@
                 if (citaCreada != null)
                 {
                     citas ??= new List<Cita>();
+                    // Insertar al principio para mantener el orden
                     citas.Insert(0, citaCreada);
                     citasFiltradas.Insert(0, citaCreada);
                 }
@@ -408,6 +412,7 @@
 }
 
 <style>
+    /* Estilos se mantienen igual */
     .page-container {
         padding: 2rem;
         background-color: #f1f0fa;
