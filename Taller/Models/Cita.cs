@@ -10,7 +10,6 @@ public class Cita
     public int IdCliente { get; set; }
     public DateTime FechaCita { get; set; }
     public string Estado { get; set; } = "Pendiente";
-
-    // Relación con Cliente (opcional, pero útil)
+    public string? Descripcion { get; set; }
     public virtual Cliente? IdClienteNavigation { get; set; }
 }

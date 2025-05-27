@@ -80,21 +80,26 @@ namespace TallerWEBAPI.Controllers
 
         // POST: api/Citas
         [HttpPost]
-        public async Task<ActionResult<Cita>> PostCita([FromBody] Cita cita)
+        public async Task<ActionResult<Cita>> PostCita([FromBody] CitaCreacionDTO citaDto)
         {
             try
             {
-                if (cita.FechaCita == default)
+                if (citaDto.FechaCita == default)
                 {
                     return BadRequest("La fecha de la cita es requerida");
                 }
 
-                if (!await _citaService.ClienteExisteAsync(cita.IdCliente))
+                if (string.IsNullOrEmpty(citaDto.Descripcion))
+                {
+                    return BadRequest("La descripción de la cita es requerida");
+                }
+
+                if (!await _citaService.ClienteExisteAsync(citaDto.IdCliente))
                 {
                     return BadRequest("El cliente especificado no existe");
                 }
 
-                var nuevaCita = await _citaService.CrearCitaAsync(cita);
+                var nuevaCita = await _citaService.CrearCitaAsync(citaDto);
                 return CreatedAtAction(nameof(GetCita), new { id = nuevaCita.IdCita }, nuevaCita);
             }
             catch (Exception ex)
@@ -116,6 +121,11 @@ namespace TallerWEBAPI.Controllers
                 if (id != cita.IdCita)
                 {
                     return BadRequest("El ID de la cita no coincide con el ID en la URL");
+                }
+
+                if (string.IsNullOrEmpty(cita.Descripcion))
+                {
+                    return BadRequest("La descripción de la cita es requerida");
                 }
 
                 if (!await _citaService.ClienteExisteAsync(cita.IdCliente))

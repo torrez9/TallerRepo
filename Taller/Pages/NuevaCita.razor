@@ -65,6 +65,7 @@
                         <tr>
                             <th>Cliente</th>
                             <th>Fecha</th>
+                            <th>Descripción</th>
                             <th>Estado</th>
                         </tr>
                     </thead>
@@ -74,6 +75,7 @@
                             <tr>
                                 <td>@ObtenerNombreCliente(cita.IdCliente)</td>
                                 <td>@cita.FechaCita.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@(string.IsNullOrEmpty(cita.Descripcion) ? "Sin descripción" : cita.Descripcion)</td>
                                 <td>
                                     @if (cita.Estado == "Confirmada")
                                     {
@@ -159,6 +161,11 @@
             </div>
 
             <div class="form-group">
+                <label>Descripción*</label>
+                <InputTextArea @bind-Value="nuevaCita.Descripcion" class="form-control" rows="3" required />
+            </div>
+
+            <div class="form-group">
                 <label>Estado</label>
                 <InputSelect class="form-select" @bind-Value="nuevaCita.Estado">
                     <option value="Pendiente">Pendiente</option>
@@ -201,10 +208,11 @@
     private DateTime? fechaDesde;
     private DateTime? fechaHasta;
     private bool filtroActivo = false;
-    private Cita nuevaCita = new()
+    private CitaCreacionDTO nuevaCita = new()
     {
         FechaCita = DateTime.Now,
-        Estado = "Pendiente"
+        Estado = "Pendiente",
+        Descripcion = ""
     };
     private string mensaje = "";
     private bool mostrarModal = false;
@@ -314,17 +322,17 @@
                 return;
             }
 
-            nuevaCita.IdClienteNavigation = null;
+            // Asegurar valores requeridos
+            nuevaCita.Descripcion ??= string.Empty;
+            nuevaCita.Estado ??= "Pendiente";
 
             var response = await Http.PostAsJsonAsync("api/Citas", nuevaCita);
+
             if (response.IsSuccessStatusCode)
             {
                 MostrarNotificacion("✅ Cita agregada exitosamente.", true);
-
-                // Obtener la cita creada desde la respuesta
                 var citaCreada = await response.Content.ReadFromJsonAsync<Cita>();
 
-                // Agregar la nueva cita a la lista local
                 if (citaCreada != null)
                 {
                     citas ??= new List<Cita>();
@@ -336,17 +344,16 @@
                 nuevaCita = new()
                 {
                     FechaCita = DateTime.Now,
-                    Estado = "Pendiente"
+                    Estado = "Pendiente",
+                    Descripcion = ""
                 };
                 clienteSeleccionado = null;
                 mostrarModal = false;
-
-                StateHasChanged();
             }
             else
             {
-                var contenidoError = await response.Content.ReadAsStringAsync();
-                MostrarNotificacion($"❌ Error al agregar cita: {response.ReasonPhrase}", false);
+                var errorContent = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ Error al agregar cita: {errorContent}", false);
             }
         }
         catch (Exception ex)
@@ -361,7 +368,8 @@
         nuevaCita = new()
         {
             FechaCita = DateTime.Now,
-            Estado = "Pendiente"
+            Estado = "Pendiente",
+            Descripcion = ""
         };
         clienteSeleccionado = null;
         clientesFiltrados = null;

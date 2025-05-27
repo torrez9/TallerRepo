@@ -24,6 +24,7 @@ namespace TallerWEBAPI.Services
         {
             return await _context.Citas
                 .Where(c => c.IdCliente == idCliente)
+                .Include(c => c.IdClienteNavigation)
                 .ToListAsync();
         }
 
@@ -34,14 +35,34 @@ namespace TallerWEBAPI.Services
                 .FirstOrDefaultAsync(c => c.IdCita == id);
         }
 
-        public async Task<Cita> CrearCitaAsync(Cita cita)
+        //
+        public async Task<Cita> CrearCitaAsync(CitaCreacionDTO citaDto)
         {
+            var cita = new Cita
+            {
+                IdCliente = citaDto.IdCliente,
+                FechaCita = citaDto.FechaCita,
+                Estado = citaDto.Estado,
+                Descripcion = citaDto.Descripcion
+            };
+
             _context.Citas.Add(cita);
             await _context.SaveChangesAsync();
+
             return await _context.Citas
                 .Include(c => c.IdClienteNavigation)
                 .FirstOrDefaultAsync(c => c.IdCita == cita.IdCita);
         }
+
+
+        //public async Task<Cita> CrearCitaAsync(Cita cita)
+        //{
+        //    _context.Citas.Add(cita);
+        //    await _context.SaveChangesAsync();
+        //    return await _context.Citas
+        //        .Include(c => c.IdClienteNavigation)
+        //        .FirstOrDefaultAsync(c => c.IdCita == cita.IdCita);
+        //}
 
         public async Task<bool> ActualizarCitaAsync(int id, Cita cita)
         {
@@ -52,6 +73,7 @@ namespace TallerWEBAPI.Services
             citaExistente.IdCliente = cita.IdCliente;
             citaExistente.FechaCita = cita.FechaCita;
             citaExistente.Estado = cita.Estado;
+            citaExistente.Descripcion = cita.Descripcion;
 
             await _context.SaveChangesAsync();
             return true;

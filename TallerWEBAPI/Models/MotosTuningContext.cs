@@ -55,6 +55,7 @@ public partial class MotosTuningContext : DbContext
         {
             entity.HasKey(e => e.IdCita).HasName("PK__Citas__394B02026B6C86F6");
 
+            entity.Property(e => e.Descripcion).HasMaxLength(255);
             entity.Property(e => e.Estado)
                 .HasMaxLength(20)
                 .IsUnicode(false)
@@ -73,6 +74,8 @@ public partial class MotosTuningContext : DbContext
 
             entity.HasIndex(e => e.Correo, "UQ__Clientes__60695A19F457B8A1").IsUnique();
 
+            entity.Property(e => e.Apellido).HasMaxLength(100);
+            entity.Property(e => e.Contraseña).HasMaxLength(100);
             entity.Property(e => e.Correo)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -85,6 +88,7 @@ public partial class MotosTuningContext : DbContext
             entity.Property(e => e.Telefono)
                 .HasMaxLength(15)
                 .IsUnicode(false);
+            entity.Property(e => e.Usuario).HasMaxLength(50);
 
             entity.HasMany(d => d.IdMotos).WithMany(p => p.IdClientes)
                 .UsingEntity<Dictionary<string, object>>(
