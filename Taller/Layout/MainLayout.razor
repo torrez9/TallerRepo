@@ -1,88 +1,166 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
+﻿@using System.Security.Claims
+@using System.Net.Http.Headers
+@using Taller.Models
 @inherits LayoutComponentBase
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
 <div class="layout-container">
-    <!-- Barra de navegación con Bootstrap -->
     <header class="navbar navbar-expand-lg navbar-dark bg-black px-3">
         <a class="navbar-brand" href="home">TallerMotos</a>
 
-        <!-- Botón hamburguesa -->
         <button class="navbar-toggler" type="button" @onclick="ToggleMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
 
-        <!-- Menú colapsable -->
         <div class="collapse navbar-collapse @(menuAbierto ? "show" : "")">
-            <!-- Elementos alineados a la izquierda -->
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
                     <NavLink class="nav-link" href="home" Match="NavLinkMatch.All">
-                        <span class="bi bi-house-door-fill"></span> Inicio
+                        <i class="bi bi-house-door-fill"></i> Inicio
                     </NavLink>
                 </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="NuevaCita">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Citas
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="NuevoCliente">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Clientes
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="ListaCitas">
-                        <span class="bi bi-list-check"></span> Lista de Citas
-                    </NavLink>
-                </li>
-
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="/perfil">
-                        <i class="fas fa-user"></i> @(nombreUsuario ?? "Mi Perfil")
-                    </NavLink>
-                </li>
+                @if (isAuthenticated)
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="NuevaCita">
+                            <i class="bi bi-calendar-plus"></i> Citas
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="NuevoCliente">
+                            <i class="bi bi-person-plus-fill"></i> Clientes
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="ListaCitas">
+                            <i class="bi bi-list-check"></i> Citas Agendadas
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="CitasID">
+                            <i class="bi bi-list-check"></i> Mis Citas
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="Notificaciones">
+                            <i class="bi bi-list-check"></i> Notificaciones
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="perfil">
+                            <i class="bi bi-person-circle"></i> Perfil
+                        </NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" @onclick="CerrarSesion">
+                            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                        </a>
+                    </li>
+                }
+                else
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="/">
+                            <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                        </NavLink>
+                    </li>
+                }
             </ul>
         </div>
     </header>
 
-    <!-- Contenido principal -->
     <main class="main-content">
         @Body
     </main>
 </div>
 
-<!-- UI de error de Blazor -->
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
-
 @code {
     private bool menuAbierto = false;
     private string? nombreUsuario;
+    private bool isAuthenticated = false;
+    private Cliente? usuarioActual;
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarNombreUsuario();
+        await VerificarAutenticacion();
+        ((CustomAuthStateProvider)AuthStateProvider).AuthenticationStateChanged +=
+            async _ => await VerificarAutenticacion();
     }
 
-    private async Task CargarNombreUsuario()
+    private async Task VerificarAutenticacion()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity?.IsAuthenticated ?? false)
+        try
         {
-            nombreUsuario = user.Identity.Name;
+            var tieneToken = await JSRuntime.InvokeAsync<bool>("authManager.isLoggedIn");
 
-            // Si no hay nombre, intentamos obtenerlo de las claims
-            if (string.IsNullOrEmpty(nombreUsuario))
+            if (!tieneToken)
             {
-                nombreUsuario = user.FindFirst(ClaimTypes.Name)?.Value;
+                isAuthenticated = false;
+                nombreUsuario = null;
+                usuarioActual = null;
+                StateHasChanged();
+                return;
             }
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            isAuthenticated = user.Identity?.IsAuthenticated ?? false;
+
+            if (isAuthenticated)
+            {
+                usuarioActual = await JSRuntime.InvokeAsync<Cliente>("authManager.getCurrentUser");
+
+                if (usuarioActual == null)
+                {
+                    var token = await JSRuntime.InvokeAsync<string>("authManager.getAuthToken");
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        var http = new HttpClient();
+                        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                        var response = await http.GetAsync($"{NavigationManager.BaseUri}api/profile/me");
+                        if (response.IsSuccessStatusCode)
+                        {
+                            usuarioActual = await response.Content.ReadFromJsonAsync<Cliente>();
+                            await JSRuntime.InvokeVoidAsync("authManager.updateUserData", usuarioActual);
+                        }
+                    }
+                }
+
+                nombreUsuario = usuarioActual?.Nombre ?? user.FindFirst(ClaimTypes.Name)?.Value ?? "Usuario";
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al verificar autenticación: {ex.Message}");
+            await CerrarSesion();
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private async Task CerrarSesion()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("authManager.clearUserData");
+            if (AuthStateProvider is CustomAuthStateProvider customProvider)
+            {
+                await customProvider.NotifyUserLogout();
+            }
+            isAuthenticated = false;
+            nombreUsuario = null;
+            usuarioActual = null;
+            StateHasChanged();
+            NavigationManager.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al cerrar sesión: {ex.Message}");
         }
     }
 
@@ -90,93 +168,20 @@
     {
         menuAbierto = !menuAbierto;
     }
+
+    public class Cliente
+    {
+        public Cliente(string nombre)
+        {
+            Nombre = nombre;
+        }
+
+        public int IdCliente { get; set; }
+        public string Nombre { get; set; }
+        public string Apellido { get; set; }
+        public string Telefono { get; set; }
+        public string Correo { get; set; }
+        public string Usuario { get; set; }
+        public string Direccion { get; set; }
+    }
 }
-
-<style>
-    .layout-container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-    }
-
-    .main-content {
-        flex-grow: 1;
-        padding: 1.5rem;
-        background-color: #f4f7fc;
-        overflow-y: auto;
-    }
-
-    .navbar-brand {
-        font-size: 1.25rem;
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-    }
-
-        .navbar-brand:hover {
-            color: #a64dff;
-        }
-
-    .nav-link {
-        color: white !important;
-        text-decoration: none;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        transition: background-color 0.2s ease, color 0.2s ease;
-        border-radius: 12px;
-        padding: 0.4rem 0.75rem;
-    }
-
-        .nav-link:hover {
-            background: linear-gradient(90deg, #6f42c1, #a64dff);
-            color: white !important;
-        }
-
-        .nav-link.active {
-            font-weight: bold;
-            text-decoration: underline;
-        }
-
-    #blazor-error-ui {
-        background-color: #ffcc00;
-        color: black;
-        padding: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-        #blazor-error-ui a {
-            color: black;
-            text-decoration: underline;
-        }
-
-        #blazor-error-ui .reload {
-            font-weight: bold;
-        }
-
-        #blazor-error-ui .dismiss {
-            cursor: pointer;
-            font-size: 1.5rem;
-        }
-
-    .navbar-toggler {
-        border: none;
-        background: transparent;
-    }
-
-    .navbar-nav {
-        display: flex;
-        justify-content: flex-start;
-        gap: 1rem;
-    }
-
-        .navbar-nav .nav-item {
-            padding: 0.4rem 0;
-        }
-
-        .navbar-nav.ms-auto {
-            margin-left: 0;
-        }
-</style>

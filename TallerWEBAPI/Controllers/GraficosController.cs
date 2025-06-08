@@ -37,8 +37,10 @@ namespace TallerWEBAPI.Controllers
         {
             var citas = await _citaService.ObtenerCitasAsync();
             var ahora = DateTime.Now;
+            var hace6Meses = ahora.AddMonths(-6);
+
             var ultimos6Meses = citas
-                .Where(c => c.FechaCita >= ahora.AddMonths(-6))
+                .Where(c => c.FechaCita.ToDateTime(TimeOnly.MinValue) >= hace6Meses)
                 .GroupBy(c => new { c.FechaCita.Year, c.FechaCita.Month })
                 .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                 .Select(g => new
@@ -50,6 +52,26 @@ namespace TallerWEBAPI.Controllers
 
             return Ok(ultimos6Meses);
         }
+
+        // GET: api/Graficos/CitasPorMes
+        //[HttpGet("CitasPorMes")]
+        //public async Task<ActionResult> GetCitasPorMes()
+        //{
+        //    var citas = await _citaService.ObtenerCitasAsync();
+        //    var ahora = DateTime.Now;
+        //    var ultimos6Meses = citas
+        //        .Where(c => c.FechaCita >= ahora.AddMonths(-6))
+        //        .GroupBy(c => new { c.FechaCita.Year, c.FechaCita.Month })
+        //        .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+        //        .Select(g => new
+        //        {
+        //            Mes = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(g.Key.Month) + " " + g.Key.Year,
+        //            Cantidad = g.Count()
+        //        })
+        //        .ToList();
+
+        //    return Ok(ultimos6Meses);
+        //}
 
         // GET: api/Graficos/TopClientes
         [HttpGet("TopClientes")]

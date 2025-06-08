@@ -7,189 +7,247 @@
 <PageTitle>Citas</PageTitle>
 
 <div class="page-container">
-    <div class="header-logo">
-        <img src="images/logotuning.png" alt="Logo Taller" class="logo-img" />
-        <h1>Citas Registradas</h1>
+    <div class="header-container">
+        <div class="header-logo">
+            <img src="images/logotuning.png" alt="Logo Taller" class="logo-img" />
+            <h1>Gestión de Citas</h1>
+        </div>
     </div>
 
-    <div class="appointments-table">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <button class="btn-reschedule" @onclick="() => mostrarModal = true">
-                <i class="fas fa-plus"></i> Agregar Nueva Cita
-            </button>
-            <span class="badge-count">
-                Total: @(citasFiltradas?.Count ?? 0) @(filtroActivo ? "(filtradas)" : "")
-            </span>
-        </div>
-
-        <!-- Buscador por fechas -->
-        <div class="filter-container">
-            <div class="filter-group">
-                <label>Fecha desde</label>
-                <InputDate @bind-Value="fechaDesde" class="form-control" />
+    <div class="appointments-grid">
+        <!-- Sección para agregar nueva cita -->
+        <div class="card new-appointment-card">
+            <div class="card-header">
+                <h3><i class="fas fa-calendar-plus"></i> Nueva Cita</h3>
             </div>
-            <div class="filter-group">
-                <label>Fecha hasta</label>
-                <InputDate @bind-Value="fechaHasta" class="form-control" />
-            </div>
-            <div class="filter-group">
-                <button class="btn-action" @onclick="FiltrarPorFecha">
-                    <i class="fas fa-filter"></i> Filtrar
-                </button>
-            </div>
-            <div class="filter-group">
-                <button class="btn-cancel" @onclick="LimpiarFiltros">
-                    <i class="fas fa-times"></i> Limpiar
-                </button>
-            </div>
-        </div>
+            <div class="card-body">
+                <EditForm Model="nuevaCita" OnValidSubmit="AgregarCita">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
 
-        @if (citas == null)
-        {
-            <div class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-                <p class="mt-2">Cargando citas...</p>
-            </div>
-        }
-        else if (!citasFiltradas.Any())
-        {
-            <p class="text-center text-muted">No hay citas registradas @(filtroActivo ? "para el rango de fechas seleccionado" : "")</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Cliente</th>
-                            <th>Fecha</th>
-                            <th>Descripción</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var cita in citasFiltradasOrdenadas)
-                        {
-                            <tr>
-                                <td>@ObtenerNombreCliente(cita.IdCliente)</td>
-                                <td>@cita.FechaCita.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td>@(string.IsNullOrEmpty(cita.Descripcion) ? "Sin descripción" : cita.Descripcion)</td>
-                                <td>
-                                    @if (cita.Estado == "Confirmada")
-                                    {
-                                        <span class="badge-success">Confirmada</span>
-                                    }
-                                    else if (cita.Estado == "Pendiente")
-                                    {
-                                        <span class="badge-warning">Pendiente</span>
-                                    }
-                                    else if (cita.Estado == "Cancelada")
-                                    {
-                                        <span class="badge-error">Cancelada</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge-secondary">@(string.IsNullOrWhiteSpace(cita.Estado) ? "Pendiente" : cita.Estado)</span>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-</div>
-
-<!-- Modal para agregar nueva cita -->
-<div class="modal-background @(mostrarModal ? "show" : "d-none")">
-    <div class="modal-box">
-        <h3>➕ Nueva Cita</h3>
-
-        <EditForm Model="nuevaCita" OnValidSubmit="AgregarCita">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-
-            <div class="form-group">
-                <label>Buscar Cliente*</label>
-                <div class="search-box">
-                    <input type="text" class="form-control" @bind="terminoBusqueda" @bind:event="oninput"
-                           placeholder="Ingrese nombre del cliente" />
-                    <button class="btn-action" type="button" @onclick="BuscarClientes">
-                        <i class="fas fa-search"></i>
-                    </button>
-                </div>
-
-                @if (clientesFiltrados != null && clientesFiltrados.Any())
-                {
-                    <div class="client-list">
-                        @foreach (var cliente in clientesFiltrados)
-                        {
-                            <button type="button" class="list-item"
-                                    @onclick="() => SeleccionarCliente(cliente)">
-                                @cliente.Nombre
-                                @if (!string.IsNullOrEmpty(cliente.Telefono))
-                                {
-                                    <span class="text-muted">(@cliente.Telefono)</span>
-                                }
+                    <div class="form-group">
+                        <label>Buscar Cliente*</label>
+                        <div class="search-box">
+                            <input type="text" class="form-control" @bind="terminoBusqueda" @bind:event="oninput"
+                                   placeholder="Ingrese nombre o teléfono del cliente" />
+                            <button class="btn btn-search" type="button" @onclick="BuscarClientes">
+                                <i class="fas fa-search"></i> Buscar
                             </button>
+                        </div>
+
+                        @if (clientesFiltrados != null && clientesFiltrados.Any())
+                        {
+                            <div class="client-list">
+                                @foreach (var cliente in clientesFiltrados)
+                                {
+                                    <button type="button" class="list-item"
+                                            @onclick="() => SeleccionarCliente(cliente)">
+                                        @cliente.Nombre
+                                        @if (!string.IsNullOrEmpty(cliente.Telefono))
+                                        {
+                                            <span class="text-muted">(@cliente.Telefono)</span>
+                                        }
+                                    </button>
+                                }
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(terminoBusqueda) && clientesFiltrados != null)
+                        {
+                            <div class="alert alert-warning">No se encontraron clientes</div>
+                        }
+
+                        @if (clienteSeleccionado != null)
+                        {
+                            <div class="alert alert-success">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>Cliente seleccionado: <strong>@clienteSeleccionado.Nombre</strong></span>
+                                    <button type="button" class="btn-close" @onclick="DeseleccionarCliente">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="hidden" @bind="nuevaCita.IdCliente" />
                         }
                     </div>
-                }
-                else if (!string.IsNullOrEmpty(terminoBusqueda) && clientesFiltrados != null)
-                {
-                    <div class="alert-warning">No se encontraron clientes</div>
-                }
 
-                @if (clienteSeleccionado != null)
-                {
-                    <div class="alert-success">
-                        Cliente seleccionado: <strong>@clienteSeleccionado.Nombre</strong>
-                        <button type="button" class="close-btn" @onclick="DeseleccionarCliente">
-                            <i class="fas fa-times"></i>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label>Fecha de la Cita*</label>
+                            <InputDate @bind-Value="nuevaCita.FechaCita" class="form-control" required />
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Hora de la Cita*</label>
+                            <input type="time" class="form-control" @bind="nuevaCita.Hora" required />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción*</label>
+                        <InputTextArea @bind-Value="nuevaCita.Descripcion" class="form-control" rows="3" required
+                                       placeholder="Describa el servicio requerido..." />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <InputSelect class="form-select" @bind-Value="nuevaCita.Estado">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Confirmada">Confirmada</option>
+                            <option value="Cancelada">Cancelada</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Cita
                         </button>
                     </div>
-                    <input type="hidden" @bind="nuevaCita.IdCliente" />
+                </EditForm>
+            </div>
+        </div>
+
+        <!-- Sección para visualizar citas existentes -->
+        <div class="card appointments-table">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3><i class="fas fa-calendar-alt"></i> Citas Registradas</h3>
+                    <span class="badge bg-primary">Total: @citas.Count</span>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (citas == null)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando citas...</p>
+                    </div>
+                }
+                else if (!citas.Any())
+                {
+                    <p class="text-center text-muted py-4">No hay citas registradas</p>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Fecha</th>
+                                    <th>Hora</th>
+                                    <th>Descripción</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cita in citas.OrderByDescending(c => c.IdCita))
+                                {
+                                    <tr>
+                                        <td>@cita.IdCita</td>
+                                        <td>@ObtenerNombreCliente(cita.IdCliente)</td>
+                                        <td>@cita.FechaCita.ToString("dd/MM/yyyy")</td>
+                                        <td>@cita.Hora.Value.ToString("HH:mm")</td>
+                                        <td>@(cita.Descripcion?.Length > 30 ? cita.Descripcion.Substring(0, 30) + "..." : cita.Descripcion)</td>
+                                        <td>
+                                            <span class="badge @GetStatusClass(cita.Estado)">@cita.Estado</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-edit" @onclick="() => EditarCita(cita)" title="Editar">
+                                                    <i class="fas fa-edit"></i> Editar
+                                                </button>
+                                                <button class="btn btn-sm btn-delete" @onclick="() => EliminarCita(cita.IdCita)" title="Eliminar">
+                                                    <i class="fas fa-trash"></i> Eliminar
+                                                </button>
+                                            </div>
+
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 }
             </div>
-
-            <div class="form-group">
-                <label>Fecha y Hora de la Cita*</label>
-                <InputDate @bind-Value="nuevaCita.FechaCita" class="form-control" required />
-            </div>
-
-            <div class="form-group">
-                <label>Descripción*</label>
-                <InputTextArea @bind-Value="nuevaCita.Descripcion" class="form-control" rows="3" required />
-            </div>
-
-            <div class="form-group">
-                <label>Estado</label>
-                <InputSelect class="form-select" @bind-Value="nuevaCita.Estado">
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Confirmada">Confirmada</option>
-                    <option value="Cancelada">Cancelada</option>
-                </InputSelect>
-            </div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" @onclick="CerrarModal">Cancelar</button>
-                <button type="submit" class="btn-save">Guardar Cita</button>
-            </div>
-        </EditForm>
+        </div>
     </div>
 </div>
+
+<!-- Modal para editar cita -->
+@if (citaSeleccionada != null)
+{
+    <div class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Editar Cita #@citaSeleccionada.IdCita</h3>
+                <button class="modal-close-btn" @onclick="CancelarEdicion">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="citaSeleccionada" OnValidSubmit="ActualizarCita">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="form-group">
+                        <label>Cliente</label>
+                        <div class="form-control-static">
+                            @ObtenerNombreCliente(citaSeleccionada.IdCliente)
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fecha de la Cita*</label>
+                            <InputDate @bind-Value="citaSeleccionada.FechaCita" class="form-control" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Hora de la Cita*</label>
+                            <input type="time" class="form-control" @bind="citaSeleccionada.Hora" required />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción*</label>
+                        <InputTextArea @bind-Value="citaSeleccionada.Descripcion" class="form-control" rows="3" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <InputSelect class="form-select" @bind-Value="citaSeleccionada.Estado">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Confirmada">Confirmada</option>
+                            <option value="Cancelada">Cancelada</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelarEdicion">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Notificación Toast -->
 @if (mostrarNotificacion)
 {
     <div class="toast-container">
-        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header @(notificacionExito ? "toast-success" : "toast-error")">
-                <strong class="me-auto">@(notificacionExito ? "Éxito" : "Error")</strong>
-                <button type="button" class="btn-close" @onclick="CerrarNotificacion"></button>
+        <div class="toast show @(notificacionExito ? "toast-success" : "toast-error")">
+            <div class="toast-header">
+                <strong>@(notificacionExito ? "Éxito" : "Error")</strong>
+                <button type="button" class="btn-close" @onclick="CerrarNotificacion">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="toast-body">
                 @mensaje
@@ -199,89 +257,52 @@
 }
 
 @code {
-    private List<Cita>? citas;
-    private List<Cita> citasFiltradas = new();
-    private List<Cliente>? clientes;
-    private List<Cliente>? clientesFiltrados;
-    private Cliente? clienteSeleccionado;
+    private List<Cita> citas = new();
+    private List<Cliente> clientes = new();
+    private List<Cliente> clientesFiltrados;
+    private Cliente clienteSeleccionado;
+    private Cita citaSeleccionada;
     private string terminoBusqueda = string.Empty;
-    private DateTime? fechaDesde;
-    private DateTime? fechaHasta;
-    private bool filtroActivo = false;
-    private CitaCreacionDTO nuevaCita = new()
+
+    private Cita nuevaCita = new()
     {
-        FechaCita = DateTime.Now,
+        FechaCita = DateOnly.FromDateTime(DateTime.Now),
+        Hora = new TimeOnly(DateTime.Now.Hour, DateTime.Now.Minute),
         Estado = "Pendiente",
         Descripcion = ""
     };
+
     private string mensaje = "";
-    private bool mostrarModal = false;
     private bool mostrarNotificacion = false;
     private bool notificacionExito = false;
 
-    // Propiedades computadas - Modificado para ordenar por IdCita descendente (más recientes primero)
-    private IEnumerable<Cita> citasFiltradasOrdenadas => citasFiltradas.OrderByDescending(c => c.IdCita);
-
     protected override async Task OnInitializedAsync()
     {
-        await CargarClientes();
-        await CargarCitas();
+        await CargarDatos();
     }
 
-    private async Task CargarCitas()
+    private async Task CargarDatos()
     {
         try
         {
-            citas = await Http.GetFromJsonAsync<List<Cita>>("api/Citas");
-            // Ordenar las citas por IdCita descendente al cargarlas
-            citas = citas?.OrderByDescending(c => c.IdCita).ToList();
-            citasFiltradas = citas?.ToList() ?? new List<Cita>();
+            var tasks = new Task[]
+            {
+                Http.GetFromJsonAsync<List<Cita>>("api/Citas").ContinueWith(t =>
+                {
+                    if (t.IsCompletedSuccessfully) citas = t.Result;
+                }),
+                Http.GetFromJsonAsync<List<Cliente>>("api/Clientes").ContinueWith(t =>
+                {
+                    if (t.IsCompletedSuccessfully) clientes = t.Result;
+                })
+            };
+
+            await Task.WhenAll(tasks);
         }
         catch (Exception ex)
         {
-            MostrarNotificacion($"❌ Error al cargar citas: {ex.Message}", false);
+            MostrarNotificacion($"❌ Error al cargar datos: {ex.Message}", false);
         }
-    }
-
-    private async Task CargarClientes()
-    {
-        try
-        {
-            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/Clientes");
-        }
-        catch (Exception ex)
-        {
-            MostrarNotificacion($"❌ Error al cargar clientes: {ex.Message}", false);
-        }
-    }
-
-    private void FiltrarPorFecha()
-    {
-        if (fechaDesde == null && fechaHasta == null)
-        {
-            MostrarNotificacion("❌ Seleccione al menos una fecha para filtrar", false);
-            return;
-        }
-
-        filtroActivo = true;
-        citasFiltradas = citas?.Where(c =>
-            (fechaDesde == null || c.FechaCita.Date >= fechaDesde.Value.Date) &&
-            (fechaHasta == null || c.FechaCita.Date <= fechaHasta.Value.Date)
-        ).OrderByDescending(c => c.IdCita) // Mantener el orden al filtrar
-        .ToList() ?? new List<Cita>();
-
-        if (!citasFiltradas.Any())
-        {
-            MostrarNotificacion("ℹ️ No se encontraron citas en el rango seleccionado", true);
-        }
-    }
-
-    private void LimpiarFiltros()
-    {
-        fechaDesde = null;
-        fechaHasta = null;
-        filtroActivo = false;
-        citasFiltradas = citas?.ToList() ?? new List<Cita>();
     }
 
     private async Task BuscarClientes()
@@ -292,13 +313,10 @@
             return;
         }
 
-        if (clientes != null)
-        {
-            clientesFiltrados = clientes
-                .Where(c => c.Nombre.Contains(terminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
-                             (c.Telefono != null && c.Telefono.Contains(terminoBusqueda)))
-                .ToList();
-        }
+        clientesFiltrados = clientes
+            .Where(c => c.Nombre.Contains(terminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                       (c.Telefono != null && c.Telefono.Contains(terminoBusqueda)))
+            .ToList();
     }
 
     private void SeleccionarCliente(Cliente cliente)
@@ -325,39 +343,57 @@
                 return;
             }
 
-            // Asegurar valores requeridos
-            nuevaCita.Descripcion ??= string.Empty;
-            nuevaCita.Estado ??= "Pendiente";
+            if (nuevaCita.Hora == default)
+            {
+                MostrarNotificacion("❌ La hora de la cita es requerida.", false);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(nuevaCita.Descripcion))
+            {
+                MostrarNotificacion("❌ La descripción es requerida.", false);
+                return;
+            }
+
+            var citasHoy = citas.Count(c => c.FechaCita == nuevaCita.FechaCita);
+            if (citasHoy >= 10)
+            {
+                MostrarNotificacion($"❌ Límite alcanzado: Solo se permiten 10 citas por día. Hoy ya tiene {citasHoy} citas programadas.", false);
+                return;
+            }
+
+            var horaOcupada = citas.Any(c =>
+                c.FechaCita == nuevaCita.FechaCita &&
+                c.Hora == nuevaCita.Hora);
+
+            if (horaOcupada)
+            {
+                MostrarNotificacion("❌ La hora seleccionada ya está ocupada. Por favor elija otra hora.", false);
+                return;
+            }
 
             var response = await Http.PostAsJsonAsync("api/Citas", nuevaCita);
 
             if (response.IsSuccessStatusCode)
             {
-                MostrarNotificacion("✅ Cita agregada exitosamente.", true);
-                var citaCreada = await response.Content.ReadFromJsonAsync<Cita>();
+                var citaAgregada = await response.Content.ReadFromJsonAsync<Cita>();
+                citas.Insert(0, citaAgregada);
 
-                if (citaCreada != null)
-                {
-                    citas ??= new List<Cita>();
-                    // Insertar al principio para mantener el orden
-                    citas.Insert(0, citaCreada);
-                    citasFiltradas.Insert(0, citaCreada);
-                }
+                MostrarNotificacion("✅ Cita creada exitosamente.", true);
 
-                // Resetear el formulario
                 nuevaCita = new()
                 {
-                    FechaCita = DateTime.Now,
+                    FechaCita = DateOnly.FromDateTime(DateTime.Now),
+                    Hora = new TimeOnly(DateTime.Now.Hour, DateTime.Now.Minute),
                     Estado = "Pendiente",
                     Descripcion = ""
                 };
                 clienteSeleccionado = null;
-                mostrarModal = false;
             }
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                MostrarNotificacion($"❌ Error al agregar cita: {errorContent}", false);
+                MostrarNotificacion($"❌ Error al crear cita: {errorContent}", false);
             }
         }
         catch (Exception ex)
@@ -366,18 +402,92 @@
         }
     }
 
-    private void CerrarModal()
+    private void EditarCita(Cita cita)
     {
-        mostrarModal = false;
-        nuevaCita = new()
+        citaSeleccionada = new Cita
         {
-            FechaCita = DateTime.Now,
-            Estado = "Pendiente",
-            Descripcion = ""
+            IdCita = cita.IdCita,
+            IdCliente = cita.IdCliente,
+            FechaCita = cita.FechaCita,
+            Hora = cita.Hora,
+            Descripcion = cita.Descripcion,
+            Estado = cita.Estado
         };
-        clienteSeleccionado = null;
-        clientesFiltrados = null;
-        terminoBusqueda = string.Empty;
+    }
+
+    private async Task ActualizarCita()
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/Citas/{citaSeleccionada.IdCita}", citaSeleccionada);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var index = citas.FindIndex(c => c.IdCita == citaSeleccionada.IdCita);
+                if (index >= 0)
+                {
+                    citas[index] = citaSeleccionada;
+                }
+
+                MostrarNotificacion("✅ Cita actualizada exitosamente.", true);
+                citaSeleccionada = null;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ Error al actualizar cita: {errorContent}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error inesperado: {ex.Message}", false);
+        }
+    }
+
+    private async Task EliminarCita(int idCita)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "¿Está seguro que desea eliminar esta cita?"))
+            return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Citas/{idCita}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                citas.RemoveAll(c => c.IdCita == idCita);
+                MostrarNotificacion("✅ Cita eliminada exitosamente.", true);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                MostrarNotificacion($"❌ Error al eliminar cita: {errorContent}", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarNotificacion($"❌ Error inesperado: {ex.Message}", false);
+        }
+    }
+
+    private void CancelarEdicion()
+    {
+        citaSeleccionada = null;
+    }
+
+    private string ObtenerNombreCliente(int idCliente)
+    {
+        return clientes.FirstOrDefault(c => c.IdCliente == idCliente)?.Nombre ?? "Cliente no encontrado";
+    }
+
+    private string GetStatusClass(string estado)
+    {
+        return estado switch
+        {
+            "Confirmada" => "bg-success",
+            "Cancelada" => "bg-danger",
+            _ => "bg-warning"
+        };
     }
 
     private void MostrarNotificacion(string mensajeNotificacion, bool exito)
@@ -404,224 +514,193 @@
     {
         mostrarNotificacion = false;
     }
-
-    private string ObtenerNombreCliente(int idCliente)
-    {
-        return clientes?.FirstOrDefault(c => c.IdCliente == idCliente)?.Nombre ?? "Cliente desconocido";
-    }
 }
 
 <style>
-    /* Estilos se mantienen igual */
+    /* Estilos base */
+    :root {
+        --primary-color: #6f42c1;
+        --secondary-color: #5a32a8;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --info-color: #17a2b8;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --border-radius: 0.375rem;
+        --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #212529;
+        background-color: #f8f9fa;
+    }
+
     .page-container {
         padding: 2rem;
-        background-color: #f1f0fa;
-        color: #222;
-        font-family: 'Segoe UI', sans-serif;
+        min-height: 100vh;
     }
 
-    h1, h2, h3 {
-        color: #6f42c1;
-        margin-bottom: 1rem;
+    .header-container {
+        margin-bottom: 2rem;
     }
 
-    .appointments-table {
-        background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    .table-responsive {
-        overflow-x: auto;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-    }
-
-    th, td {
-        padding: 0.9rem 1rem;
-        border: 1px solid #ddd;
-        text-align: left;
-    }
-
-    th {
-        background-color: #e9e6fb;
-        color: #4b3c82;
-    }
-
-    td {
-        background-color: #fcfcff;
-    }
-
-    tr:hover {
-        background-color: #f0f3ff;
-        cursor: pointer;
-    }
-
-    .badge-count {
-        background-color: #6f42c1;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.9rem;
-    }
-
-    .badge-success {
-        background-color: #28a745;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 10px;
-        font-size: 0.8rem;
-    }
-
-    .badge-warning {
-        background-color: #ffc107;
-        color: #333;
-        padding: 0.25rem 0.5rem;
-        border-radius: 10px;
-        font-size: 0.8rem;
-    }
-
-    .badge-error {
-        background-color: #dc3545;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 10px;
-        font-size: 0.8rem;
-    }
-
-    .badge-secondary {
-        background-color: #6c757d;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 10px;
-        font-size: 0.8rem;
-    }
-
-    .filter-container {
+    .header-logo {
         display: flex;
-        gap: 1rem;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
         margin-bottom: 1.5rem;
         flex-wrap: wrap;
     }
 
-    .filter-group {
-        display: flex;
-        flex-direction: column;
-        min-width: 150px;
+        .header-logo h1 {
+            margin: 0;
+            color: var(--primary-color);
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+    .logo-img {
+        height: 80px;
+        width: auto;
+        object-fit: contain;
     }
 
-        .filter-group label {
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #4b3c82;
+    /* Grid principal */
+    .appointments-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    @@media (min-width: 992px) {
+        .appointments-grid {
+            grid-template-columns: 1fr 2fr;
         }
+    }
+
+    /* Tarjetas */
+    .card {
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+        background-color: white;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 1rem 1.5rem rgba(0, 0, 0, 0.1);
+        }
+
+    .card-header {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem 1.5rem;
+    }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    /* Contenedor de tabla con scroll */
+    .table-container {
+        max-height: 600px;
+        overflow-y: auto;
+        border-radius: var(--border-radius);
+        border: 1px solid #dee2e6;
+    }
+
+        /* Estilos para la barra de scroll */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+            .table-container::-webkit-scrollbar-thumb:hover {
+                background: #555;
+            }
+
+    /* Formularios */
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #495057;
+    }
 
     .form-control {
+        display: block;
         width: 100%;
-        padding: 0.6rem;
+        padding: 0.5rem 0.75rem;
         font-size: 1rem;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        background-color: #f7f7fb;
+        line-height: 1.5;
+        color: #495057;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: var(--border-radius);
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     }
+
+        .form-control:focus {
+            color: #495057;
+            background-color: #fff;
+            border-color: var(--primary-color);
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(111, 66, 193, 0.25);
+        }
 
     .form-select {
+        display: block;
         width: 100%;
-        padding: 0.6rem;
+        padding: 0.5rem 0.75rem;
         font-size: 1rem;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        background-color: #f7f7fb;
+        line-height: 1.5;
+        color: #495057;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: var(--border-radius);
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     }
 
-    .btn-reschedule, .btn-cancel, .btn-save, .btn-action {
-        padding: 0.6rem 1.2rem;
-        border: none;
-        border-radius: 25px;
-        font-size: 1rem;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-
-    .btn-reschedule {
-        background: linear-gradient(90deg, #ffcc70, #ffb347);
-        color: #333;
-    }
-
-        .btn-reschedule:hover {
-            background: linear-gradient(90deg, #f0b235, #e59b26);
-        }
-
-    .btn-action {
-        background-color: #e9e6fb;
-        color: #4b3c82;
-    }
-
-        .btn-action:hover {
-            background-color: #d8ccff;
-        }
-
-    .btn-cancel {
-        background-color: #ff6b6b;
-        color: white;
-    }
-
-        .btn-cancel:hover {
-            background-color: #e34a4a;
-        }
-
-    .btn-save {
-        background-color: #28a745;
-        color: white;
-    }
-
-        .btn-save:hover {
-            background-color: #218838;
-        }
-
-    .modal-background {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-
-    .modal-box {
-        background-color: #ffffff;
-        padding: 2rem;
-        border-radius: 15px;
-        width: 90%;
-        max-width: 500px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    }
-
-        .modal-box h3 {
-            margin-top: 0;
-            font-size: 1.6rem;
-            color: #6f42c1;
-            margin-bottom: 1rem;
-        }
-
-    .form-group {
-        margin-bottom: 1rem;
-    }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #4b3c82;
+        .form-select:focus {
+            border-color: var(--primary-color);
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(111, 66, 193, 0.25);
         }
 
     .search-box {
@@ -629,112 +708,473 @@
         gap: 0.5rem;
     }
 
-        .search-box input {
-            flex: 1;
-        }
-
     .client-list {
         max-height: 200px;
         overflow-y: auto;
+        border: 1px solid #ced4da;
+        border-radius: var(--border-radius);
         margin-top: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 8px;
     }
 
     .list-item {
-        display: block;
         width: 100%;
-        padding: 0.75rem 1rem;
+        padding: 0.5rem 0.75rem;
         text-align: left;
         background: none;
         border: none;
         border-bottom: 1px solid #eee;
+        font-family: inherit;
         cursor: pointer;
+        transition: background-color 0.2s;
     }
 
         .list-item:hover {
-            background-color: #f0f3ff;
+            background-color: #f8f9fa;
         }
 
-    .alert-success {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 0.75rem 1rem;
-        border-radius: 8px;
-        margin-top: 0.5rem;
+    .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+        .form-row > .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+    .form-actions {
+        margin-top: 1.5rem;
+        text-align: right;
+    }
+
+    /* Alertas */
+    .alert {
         position: relative;
+        padding: 0.75rem 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid transparent;
+        border-radius: var(--border-radius);
+    }
+
+    .alert-success {
+        color: #155724;
+        background-color: #d4edda;
+        border-color: #c3e6cb;
     }
 
     .alert-warning {
-        background-color: #fff3cd;
         color: #856404;
-        padding: 0.75rem 1rem;
-        border-radius: 8px;
-        margin-top: 0.5rem;
+        background-color: #fff3cd;
+        border-color: #ffeeba;
     }
 
-    .close-btn {
-        position: absolute;
-        right: 0.5rem;
-        top: 0.5rem;
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #155724;
-    }
-
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        margin-top: 1.5rem;
-    }
-
-    .header-logo {
-        display: flex;
+    /* Botones */
+    .btn {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        gap: 0.5rem;
+        font-weight: 400;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border-radius: var(--border-radius);
+        transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        cursor: pointer;
     }
 
-        .header-logo h1 {
-            margin: 0;
-            color: #6f42c1;
-            font-size: 2rem;
+    .btn-primary {
+        color: #fff;
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
         }
 
-    .logo-img {
-        height: 130px;
-        width: auto;
+    .btn-secondary {
+        color: #fff;
+        background-color: #6c757d;
+        border-color: #6c757d;
     }
 
+        .btn-secondary:hover {
+            background-color: #5a6268;
+            border-color: #545b62;
+        }
+
+    .btn-search {
+        color: #fff;
+        background-color: var(--info-color);
+        border-color: var(--info-color);
+    }
+
+        .btn-search:hover {
+            background-color: #138496;
+            border-color: #117a8b;
+        }
+
+    .btn-edit {
+        color: #fff;
+        background-color: var(--warning-color);
+        border-color: var(--warning-color);
+    }
+
+        .btn-edit:hover {
+            background-color: #e0a800;
+            border-color: #d39e00;
+        }
+
+    .btn-delete {
+        color: #fff;
+        background-color: var(--danger-color);
+        border-color: var(--danger-color);
+    }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+
+    .btn-group {
+        display: inline-flex;
+        vertical-align: middle;
+    }
+
+        .btn-group .btn {
+            position: relative;
+            flex: 1 1 auto;
+        }
+
+            .btn-group .btn:not(:first-child) {
+                margin-left: -1px;
+            }
+
+            .btn-group .btn:first-child {
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+            }
+
+            .btn-group .btn:last-child {
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+            }
+
+    /* Tablas */
+    .table {
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #212529;
+        border-collapse: collapse;
+    }
+
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            vertical-align: top;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .table thead th {
+            vertical-align: bottom;
+            border-bottom: 2px solid #dee2e6;
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table tbody + tbody {
+            border-top: 2px solid #dee2e6;
+        }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.075);
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.25rem;
+    }
+
+    .bg-primary {
+        background-color: var(--primary-color) !important;
+    }
+
+    .bg-success {
+        background-color: var(--success-color) !important;
+    }
+
+    .bg-warning {
+        background-color: var(--warning-color) !important;
+    }
+
+    .bg-danger {
+        background-color: var(--danger-color) !important;
+    }
+
+    /* Modal mejorado */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1050;
+    }
+
+    .modal-container {
+        background-color: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        z-index: 1060;
+    }
+
+    .modal-header {
+        padding: 1rem 1.5rem;
+        background-color: var(--primary-color);
+        color: white;
+        border-top-left-radius: var(--border-radius);
+        border-top-right-radius: var(--border-radius);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    .modal-close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.25rem;
+        cursor: pointer;
+        padding: 0.25rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        background-color: #f8f9fa;
+        border-bottom-left-radius: var(--border-radius);
+        border-bottom-right-radius: var(--border-radius);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    /* Toast */
     .toast-container {
         position: fixed;
-        top: 20px;
-        right: 20px;
+        bottom: 1rem;
+        right: 1rem;
         z-index: 1100;
     }
 
     .toast {
+        display: flex;
+        flex-direction: column;
         min-width: 300px;
+        background-color: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+        margin-bottom: 1rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
 
-    .toast-success {
-        background-color: #28a745;
+        .toast.show {
+            opacity: 1;
+        }
+
+    .toast-success .toast-header {
+        background-color: var(--success-color);
         color: white;
     }
 
-    .toast-error {
-        background-color: #dc3545;
+    .toast-error .toast-header {
+        background-color: var(--danger-color);
         color: white;
+    }
+
+    .toast-header {
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+        .toast-header strong {
+            font-weight: 600;
+        }
+
+    .toast-body {
+        padding: 1rem;
+    }
+
+    /* Utilidades */
+    .text-center {
+        text-align: center;
     }
 
     .text-muted {
         color: #6c757d !important;
     }
 
-    .text-center {
-        text-align: center;
+    .d-flex {
+        display: flex !important;
+    }
+
+    .justify-content-between {
+        justify-content: space-between !important;
+    }
+
+    .align-items-center {
+        align-items: center !important;
+    }
+
+    .py-4 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem !important;
+    }
+
+    .position-fixed {
+        position: fixed !important;
+    }
+
+    .bottom-0 {
+        bottom: 0 !important;
+    }
+
+    .end-0 {
+        right: 0 !important;
+    }
+
+    .p-3 {
+        padding: 1rem !important;
+    }
+
+    .text-white {
+        color: white !important;
+    }
+
+    .text-end {
+        text-align: right !important;
+    }
+
+    /* Responsividad mejorada */
+    @@media (max-width: 768px) {
+        .page-container {
+            padding: 1rem;
+        }
+
+        .header-logo {
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+
+            .header-logo h1 {
+                font-size: 1.5rem;
+            }
+
+        .logo-img {
+            height: 60px;
+        }
+
+        .form-row {
+            flex-direction: column;
+            gap: 0;
+        }
+
+            .form-row > .form-group {
+                width: 100%;
+                min-width: auto;
+            }
+
+        .search-box {
+            flex-direction: column;
+        }
+
+        .btn-group {
+            display: flex;
+            width: 100%;
+        }
+
+            .btn-group .btn {
+                flex: 1;
+                padding: 0.375rem;
+                font-size: 0.875rem;
+            }
+
+        table {
+            font-size: 0.875rem;
+        }
+
+            table th, table td {
+                padding: 0.5rem;
+            }
+
+        .table-container {
+            max-height: 400px;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .modal-container {
+            width: 95%;
+            margin: 0.5rem auto;
+        }
+
+        .toast-container {
+            width: 100%;
+            max-width: none;
+            padding: 0 0.5rem;
+        }
+
+        .toast {
+            min-width: auto;
+            width: 100%;
+        }
     }
 </style>

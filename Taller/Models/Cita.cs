@@ -4,12 +4,21 @@ using System.Text.Json.Serialization;
 
 namespace Taller.Models;
 
-public class Cita
+public partial class Cita
 {
     public int IdCita { get; set; }
+
     public int IdCliente { get; set; }
-    public DateTime FechaCita { get; set; }
-    public string Estado { get; set; } = "Pendiente";
+
+    public DateOnly FechaCita { get; set; }
+
+    public string? Estado { get; set; }
+
     public string? Descripcion { get; set; }
-    public virtual Cliente? IdClienteNavigation { get; set; }
+
+    public TimeOnly? Hora { get; set; }
+    public bool Notificada { get; set; } // Nueva propiedad
+
+
+    public virtual Cliente? IdClienteNavigation { get; set; } = null!;
 }

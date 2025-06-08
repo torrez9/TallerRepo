@@ -55,12 +55,13 @@ public partial class MotosTuningContext : DbContext
         {
             entity.HasKey(e => e.IdCita).HasName("PK__Citas__394B02026B6C86F6");
 
-            entity.Property(e => e.Descripcion).HasMaxLength(255);
+            entity.Property(e => e.Descripcion)
+                .HasMaxLength(300)
+                .IsUnicode(false);
             entity.Property(e => e.Estado)
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasDefaultValue("Pendiente");
-            entity.Property(e => e.FechaCita).HasColumnType("datetime");
 
             entity.HasOne(d => d.IdClienteNavigation).WithMany(p => p.Cita)
                 .HasForeignKey(d => d.IdCliente)

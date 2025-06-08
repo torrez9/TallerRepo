@@ -21,7 +21,7 @@ style.textContent = `
     }
     .chart-card h3 {
         margin-top: 0;
-        color: #6f42c1;
+        color: #1E3A8A; /* Azul oscuro para títulos */
         font-size: 1.3rem;
         padding-bottom: 0.8rem;
         border-bottom: 1px solid #eee;
@@ -116,7 +116,25 @@ function crearGraficoEstados(labels, data) {
     const ctx = canvas.getContext('2d');
     canvas._chartInstance = new Chart(ctx, {
         type: 'doughnut',
-        data: { labels, datasets: [{ data, backgroundColor: ['#28a745', '#ffc107', '#dc3545'], borderWidth: 1 }] },
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: [
+                    '#1E3A8A', // Azul oscuro - Total
+                    '#10B981', // Verde - Confirmadas
+                    '#F59E0B', // Amarillo - Pendientes
+                    '#EF4444'  // Rojo - Canceladas
+                ],
+                borderColor: [
+                    '#1E3A8A', // Azul oscuro
+                    '#0D9C6F', // Verde oscuro
+                    '#D48A08', // Amarillo oscuro
+                    '#D33833'  // Rojo oscuro
+                ],
+                borderWidth: 1
+            }]
+        },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -140,8 +158,8 @@ function crearGraficoMeses(labels, data) {
             datasets: [{
                 label: 'Citas',
                 data,
-                backgroundColor: '#6f42c1',
-                borderColor: '#4b3c82',
+                backgroundColor: '#1E3A8A', // Azul oscuro
+                borderColor: '#142B6B',       // Azul más oscuro
                 borderWidth: 1
             }]
         },
@@ -166,8 +184,8 @@ function crearGraficoClientes(labels, data) {
             datasets: [{
                 label: 'Citas',
                 data,
-                backgroundColor: '#6f42c1',
-                borderColor: '#4b3c82',
+                backgroundColor: '#1E3A8A', // Azul oscuro
+                borderColor: '#142B6B',     // Azul más oscuro
                 borderWidth: 1
             }]
         },
@@ -195,7 +213,7 @@ function crearGraficoClientes(labels, data) {
             if (!ws["!cols"]) ws["!cols"] = [];
             encabezados.forEach((_, i) => ws["!cols"].push({ wch: 22 }));
 
-            // Formato personalizado usando cell styles (requiere SheetJS Pro para todo el potencial, aquí lo hacemos básico)
+            // Formato personalizado usando cell styles
             encabezados.forEach((_, i) => {
                 let cellRef = XLSX.utils.encode_cell({ c: i, r: 1 });
                 if (ws[cellRef]) ws[cellRef].s = { fill: { fgColor: { rgb: color } }, font: { bold: true } };
@@ -208,7 +226,7 @@ function crearGraficoClientes(labels, data) {
         let estadosChart = Chart.getChart('estadosChart');
         if (estadosChart) {
             let filas = estadosChart.data.labels.map((label, idx) => [label, estadosChart.data.datasets[0].data[idx]]);
-            let ws = crearHojaConEstilo("Resumen de Estados de Citas", ["Estado", "Total"], filas, "A9D08E");
+            let ws = crearHojaConEstilo("Resumen de Estados de Citas", ["Estado", "Total"], filas, "1E3A8A");
             XLSX.utils.book_append_sheet(wb, ws, "Estados");
         }
 
@@ -216,7 +234,7 @@ function crearGraficoClientes(labels, data) {
         let mesesChart = Chart.getChart('citasMesChart');
         if (mesesChart) {
             let filas = mesesChart.data.labels.map((label, idx) => [label, mesesChart.data.datasets[0].data[idx]]);
-            let ws = crearHojaConEstilo("Resumen de Citas por Mes", ["Mes", "Total"], filas, "FFD966");
+            let ws = crearHojaConEstilo("Resumen de Citas por Mes", ["Mes", "Total"], filas, "1E3A8A");
             XLSX.utils.book_append_sheet(wb, ws, "CitasMes");
         }
 
@@ -224,7 +242,7 @@ function crearGraficoClientes(labels, data) {
         let clientesChart = Chart.getChart('clientesChart');
         if (clientesChart) {
             let filas = clientesChart.data.labels.map((label, idx) => [label, clientesChart.data.datasets[0].data[idx]]);
-            let ws = crearHojaConEstilo("Top 10 Clientes", ["Cliente", "Total Citas"], filas, "9DC3E6");
+            let ws = crearHojaConEstilo("Top 10 Clientes", ["Cliente", "Total Citas"], filas, "1E3A8A");
             XLSX.utils.book_append_sheet(wb, ws, "TopClientes");
         }
 
@@ -239,15 +257,15 @@ function crearGraficoClientes(labels, data) {
         // --- PORTADA ---
         let y = 25;
         let logoImg = new Image();
-        logoImg.src = "/images/logotuning.png"; // Ajusta la ruta si necesitas
+        logoImg.src = "/images/logotuning.png";
 
         logoImg.onload = function () {
             // LOGO grande y centrado
-            doc.addImage(logoImg, "PNG", 120, y, 50, 50); // Ajusta x, y, w, h si quieres
+            doc.addImage(logoImg, "PNG", 120, y, 50, 50);
 
             // TÍTULO y DESCRIPCIÓN centrados
             doc.setFontSize(22);
-            doc.setTextColor("#222");
+            doc.setTextColor("#1E3A8A"); // Azul oscuro
             doc.text("Reporte de Citas Agendadas", 148, y + 65, { align: "center" });
 
             doc.setFontSize(14);
@@ -256,7 +274,7 @@ function crearGraficoClientes(labels, data) {
             doc.setFontSize(11);
             doc.setTextColor("#333");
             doc.text("Especialistas en servicios, diagnósticos y modificaciones de motos.", 148, y + 83, { align: "center" });
-            doc.text("Dirección: Avenida Principal #123, León, Nicaragua. Tel: 8888-0000", 148, y + 91, { align: "center" });
+            doc.text("Dirección: Del puente del instituto inep 75 varas al sur, Matagalpa, Nicaragua. Tel: 8832-9893", 148, y + 91, { align: "center" });
 
             // Fecha de reporte
             doc.setFontSize(10);
@@ -268,17 +286,17 @@ function crearGraficoClientes(labels, data) {
             // 1. ESTADOS
             doc.addPage();
             y = 20;
-            addChartToPDF("estadosChart", "Estados de las Citas", "#28a745");
+            addChartToPDF("estadosChart", "Estados de las Citas", "#1E3A8A");
 
             // 2. CITAS POR MES
             doc.addPage();
             y = 20;
-            addChartToPDF("citasMesChart", "Citas por Mes", "#ffc107");
+            addChartToPDF("citasMesChart", "Citas por Mes", "#1E3A8A");
 
             // 3. TOP CLIENTES
             doc.addPage();
             y = 20;
-            addChartToPDF("clientesChart", "Top 10 Clientes con más Citas", "#0070C0");
+            addChartToPDF("clientesChart", "Top 10 Clientes con más Citas", "#1E3A8A");
 
             // PIE DE PÁGINA en todas las páginas
             let pageCount = doc.internal.getNumberOfPages();
@@ -311,13 +329,7 @@ function crearGraficoClientes(labels, data) {
                 doc.setDrawColor(180, 180, 180);
                 doc.rect(x - 3, y + 16, imgWidth + 6, imgHeight + 6, "S");
                 doc.addImage(img, "PNG", x, y + 19, imgWidth, imgHeight);
-
-                // Puedes agregar debajo una breve explicación si deseas:
-                // doc.setFontSize(11);
-                // doc.setTextColor("#222");
-                // doc.text("Descripción corta de este gráfico...", 148, y + 110, { align: "center" });
             }
         }
     };
-
 }

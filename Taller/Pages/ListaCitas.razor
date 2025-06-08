@@ -31,16 +31,28 @@
             </div>
         </div>
 
-        <!-- BOTONES DE EXPORTACIÓN -->
-        <div class="export-buttons mb-4" style="display:flex; gap:1rem; justify-content:flex-end;">
-            @* <button class="btn btn-success" @onclick="ExportarExcel">
-                <i class="fas fa-file-excel"></i> Exportar Gráficos a Excel
-            </button> *@
-            <button class="btn btn-danger" @onclick="ExportarPDF">
-                <i class="fas fa-file-pdf"></i> Exportar Gráficos a PDF
-            </button>
+        <!-- BUSCADOR Y BOTONES DE EXPORTACIÓN -->
+        <div class="search-export-container">
+            @* <div class="search-box">
+                <input type="text" class="search-input" placeholder="Buscar citas..." @bind="searchTerm" />
+                @if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    <button class="clear-search" @onclick="ClearSearch">
+                        <i class="fas fa-times"></i>
+                    </button>
+                }
+            </div> *@
+            
+            <div class="export-buttons">
+                @* <button class="btn btn-success" @onclick="ExportarExcel">
+                    <i class="fas fa-file-excel"></i> Exportar Gráficos a Excel
+                </button> *@
+                <button class="btn btn-danger" @onclick="ExportarPDF">
+                    <i class="fas fa-file-pdf"></i> Exportar Gráficos a PDF
+                </button>
+            </div>
         </div>
-        <!-- FIN BOTONES -->
+        <!-- FIN BUSCADOR Y BOTONES -->
 
         @if (citas == null || clientes == null)
         {
@@ -51,7 +63,7 @@
                 <p class="mt-2">Cargando citas...</p>
             </div>
         }
-        else if (!citas.Any())
+        else if (!filteredCitas.Any())
         {
             <p class="text-center text-muted">No hay citas disponibles.</p>
         }
@@ -120,12 +132,20 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var cita in citas)
+                            @foreach (var cita in filteredCitas)
                             {
                                 var nombreCliente = clientes.FirstOrDefault(c => c.IdCliente == cita.IdCliente)?.Nombre ?? "Desconocido";
                                 <tr>
                                     <td>@nombreCliente</td>
-                                    <td>@cita.FechaCita.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        @{
+                                            var fechaHora = cita.Hora.HasValue
+                                                ? cita.FechaCita.ToDateTime(cita.Hora.Value)
+                                                : cita.FechaCita.ToDateTime(TimeOnly.MinValue); // Hora por defecto 00:00
+                                        }
+                                        @fechaHora.ToString("dd/MM/yyyy HH:mm")
+                                    </td>
+
                                     <td>@(string.IsNullOrEmpty(cita.Descripcion) ? "Sin descripción" : cita.Descripcion)</td>
                                     <td>
                                         @if (cita.Estado == "Confirmada")
@@ -157,9 +177,11 @@
 
 @code {
     private List<Cita>? citas;
+    private List<Cita>? filteredCitas;
     private List<Cliente>? clientes;
     private List<ClienteCitas> topClientes = new List<ClienteCitas>();
     private DotNetObjectReference<ListaCitas>? objRef;
+    private string searchTerm = string.Empty;
 
     // Variables para los gráficos
     private int confirmadas = 0;
@@ -172,24 +194,56 @@
         await CargarCitas();
         if (citas != null && clientes != null)
         {
-            topClientes = clientes
-                .Select(cliente => new ClienteCitas
-                {
-                    IdCliente = cliente.IdCliente,
-                    Nombre = cliente.Nombre,
-                    TotalCitas = citas.Count(c => c.IdCliente == cliente.IdCliente),
-                    CitasConfirmadas = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Confirmada"),
-                    CitasPendientes = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Pendiente"),
-                    CitasCanceladas = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Cancelada")
-                })
-                .OrderByDescending(c => c.TotalCitas)
-                .Take(10)
-                .ToList();
+            FiltrarCitas();
+            CalcularTopClientes();
+        }
+    }
 
-            citas = citas
+    private void CalcularTopClientes()
+    {
+        topClientes = clientes
+            .Select(cliente => new ClienteCitas
+            {
+                IdCliente = cliente.IdCliente,
+                Nombre = cliente.Nombre,
+                TotalCitas = citas.Count(c => c.IdCliente == cliente.IdCliente),
+                CitasConfirmadas = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Confirmada"),
+                CitasPendientes = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Pendiente"),
+                CitasCanceladas = citas.Count(c => c.IdCliente == cliente.IdCliente && c.Estado == "Cancelada")
+            })
+            .OrderByDescending(c => c.TotalCitas)
+            .Take(10)
+            .ToList();
+    }
+
+    private void FiltrarCitas()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredCitas = citas?
                 .OrderBy(c => clientes.FirstOrDefault(cliente => cliente.IdCliente == c.IdCliente)?.Nombre)
                 .ToList();
         }
+        else
+        {
+            var term = searchTerm.ToLower();
+            filteredCitas = citas?
+                .Where(c => 
+                    (clientes.FirstOrDefault(cliente => cliente.IdCliente == c.IdCliente)?.Nombre?.ToLower().Contains(term) ?? false) ||
+                    c.Descripcion?.ToLower().Contains(term) == true ||
+                    c.Estado?.ToLower().Contains(term) == true ||
+                    c.FechaCita.ToString().Contains(term) ||
+                    (c.Hora.HasValue && c.Hora.Value.ToString().Contains(term))
+                )
+                .OrderBy(c => clientes.FirstOrDefault(cliente => cliente.IdCliente == c.IdCliente)?.Nombre)
+                .ToList();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        searchTerm = string.Empty;
+        FiltrarCitas();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -220,6 +274,7 @@
             if (citas != null)
             {
                 citas = citas.OrderBy(c => c.IdCita).ToList();
+                filteredCitas = citas.ToList();
             }
         }
         catch (Exception ex)
@@ -337,29 +392,62 @@
     }
 
     .stat-card {
-        flex: 1;
-        min-width: 150px;
-        background-color: #f7f7fb;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+    flex: 1;
+    min-width: 150px;
+    background-color: #f7f7fb;
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
 
-    .stat-card.confirmadas {
-        background-color: #d4edda;
-        border-left: 4px solid #28a745;
-    }
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
 
-    .stat-card.pendientes {
-        background-color: #fff3cd;
-        border-left: 4px solid #ffc107;
-    }
+.stat-card.confirmadas {
+    background-color: #E6F7F0; /* Verde muy claro */
+    border-left: 4px solid #10B981; /* Verde de gráficos */
+}
 
-    .stat-card.canceladas {
-        background-color: #f8d7da;
-        border-left: 4px solid #dc3545;
-    }
+.stat-card.pendientes {
+    background-color: #FEF6E6; /* Amarillo muy claro */
+    border-left: 4px solid #F59E0B; /* Amarillo de gráficos */
+}
+
+.stat-card.canceladas {
+    background-color: #FCE8E8; /* Rojo muy claro */
+    border-left: 4px solid #EF4444; /* Rojo de gráficos */
+}
+
+.stat-label {
+    display: block;
+    font-weight: 500;
+    color: #1E3A8A; /* Azul oscuro para etiquetas */
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #1E3A8A; /* Azul oscuro para valores */
+}
+
+/* Efectos adicionales para mejor interactividad */
+.stat-card.confirmadas:hover {
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.2);
+}
+
+.stat-card.pendientes:hover {
+    box-shadow: 0 4px 8px rgba(245, 158, 11, 0.2);
+}
+
+.stat-card.canceladas:hover {
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+}
 
     .stat-label {
         display: block;
@@ -372,6 +460,60 @@
         font-size: 1.5rem;
         font-weight: bold;
         color: #6f42c1;
+    }
+
+    .search-export-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .search-box {
+        position: relative;
+        flex: 1;
+        min-width: 250px;
+        max-width: 400px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.5rem 2rem 0.5rem 1rem;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        font-size: 1rem;
+        background-color: #f9f9f9;
+        transition: all 0.3s;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #6f42c1;
+        box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.2);
+        background-color: #fff;
+    }
+
+    .clear-search {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        padding: 0.25rem;
+    }
+
+    .clear-search:hover {
+        color: #6f42c1;
+    }
+
+    .export-buttons {
+        display: flex;
+        gap: 1rem;
     }
 
     .charts-container {
@@ -514,5 +656,36 @@
 
     .text-muted {
         color: #6c757d !important;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+        border: 1px solid #218838;
+    }
+
+    .btn-success:hover {
+        background-color: #218838;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+        border: 1px solid #c82333;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
     }
 </style>

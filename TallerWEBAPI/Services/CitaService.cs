@@ -17,6 +17,7 @@ namespace TallerWEBAPI.Services
             return await _context.Citas
                 .Include(c => c.IdClienteNavigation)
                 .OrderByDescending(c => c.FechaCita)
+                .ThenBy(c => c.Hora)
                 .ToListAsync();
         }
 
@@ -25,6 +26,18 @@ namespace TallerWEBAPI.Services
             return await _context.Citas
                 .Where(c => c.IdCliente == idCliente)
                 .Include(c => c.IdClienteNavigation)
+                .OrderByDescending(c => c.FechaCita)
+                .ThenBy(c => c.Hora)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Cita>> ObtenerCitasDeHoyAsync()
+        {
+            var hoy = DateOnly.FromDateTime(DateTime.Today);
+            return await _context.Citas
+                .Where(c => c.FechaCita == hoy)
+                .Include(c => c.IdClienteNavigation)
+                .OrderBy(c => c.Hora)
                 .ToListAsync();
         }
 
@@ -35,17 +48,8 @@ namespace TallerWEBAPI.Services
                 .FirstOrDefaultAsync(c => c.IdCita == id);
         }
 
-        //
-        public async Task<Cita> CrearCitaAsync(CitaCreacionDTO citaDto)
+        public async Task<Cita> CrearCitaAsync(Cita cita)
         {
-            var cita = new Cita
-            {
-                IdCliente = citaDto.IdCliente,
-                FechaCita = citaDto.FechaCita,
-                Estado = citaDto.Estado,
-                Descripcion = citaDto.Descripcion
-            };
-
             _context.Citas.Add(cita);
             await _context.SaveChangesAsync();
 
@@ -54,19 +58,9 @@ namespace TallerWEBAPI.Services
                 .FirstOrDefaultAsync(c => c.IdCita == cita.IdCita);
         }
 
-
-        //public async Task<Cita> CrearCitaAsync(Cita cita)
-        //{
-        //    _context.Citas.Add(cita);
-        //    await _context.SaveChangesAsync();
-        //    return await _context.Citas
-        //        .Include(c => c.IdClienteNavigation)
-        //        .FirstOrDefaultAsync(c => c.IdCita == cita.IdCita);
-        //}
-
-        public async Task<bool> ActualizarCitaAsync(int id, Cita cita)
+        public async Task<bool> ActualizarCitaAsync(Cita cita)
         {
-            var citaExistente = await _context.Citas.FindAsync(id);
+            var citaExistente = await _context.Citas.FindAsync(cita.IdCita);
             if (citaExistente == null)
                 return false;
 
@@ -74,6 +68,7 @@ namespace TallerWEBAPI.Services
             citaExistente.FechaCita = cita.FechaCita;
             citaExistente.Estado = cita.Estado;
             citaExistente.Descripcion = cita.Descripcion;
+            citaExistente.Hora = cita.Hora;
 
             await _context.SaveChangesAsync();
             return true;
