@@ -9,61 +9,90 @@ using TallerWEBAPI.Models;
 public class AuthService
 {
     private readonly MotosTuningContext _context;
+    private readonly ILogger<AuthService> _logger;
 
-    public AuthService(MotosTuningContext context)
+    public AuthService(MotosTuningContext context, ILogger<AuthService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
-    public Usuario? ValidarCredenciales(string correo, string contraseña)
+    public async Task<Cliente?> ValidarCredenciales(string correo, string contraseña)
     {
-        var usuario = _context.Usuarios
-            .Include(u => u.IdRolNavigation)
-            .FirstOrDefault(u => u.Correo == correo);
+        try
+        {
+            var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.Correo == correo);
 
-        if (usuario == null) return null;
+            if (cliente == null)
+            {
+                _logger.LogWarning($"Intento de login con correo no existente: {correo}");
+                return null;
+            }
 
-        // Verificar contraseña hasheada
-        return BCrypt.Net.BCrypt.Verify(contraseña, usuario.Contraseña) ? usuario : null;
+            if (!BCrypt.Net.BCrypt.Verify(contraseña, cliente.Contraseña))
+            {
+                _logger.LogWarning($"Intento de login con contraseña incorrecta para: {correo}");
+                return null;
+            }
+
+            return cliente;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error al validar credenciales para: {correo}");
+            throw;
+        }
     }
 
-
-    //restaurar usuario
-    public bool RegistrarUsuario(Usuario usuario)
+    public async Task<bool> RegistrarCliente(Cliente cliente)
     {
-        if (_context.Usuarios.Any(u => u.Correo == usuario.Correo))
-            return false;
+        try
+        {
+            if (await _context.Clientes.AnyAsync(c => c.Correo == cliente.Correo || c.Usuario == cliente.Usuario))
+                return false;
 
-        // Hashear la contraseña antes de guardar
-        usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(usuario.Contraseña);
+            cliente.Contraseña = BCrypt.Net.BCrypt.HashPassword(cliente.Contraseña);
 
-        _context.Usuarios.Add(usuario);
-        _context.SaveChanges();
-        return true;
+            await _context.Clientes.AddAsync(cliente);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Nuevo cliente registrado: {cliente.Correo}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error al registrar cliente: {cliente.Correo}");
+            throw;
+        }
     }
 
-
-    //Restaurar Contra
     public async Task<bool> ResetPassword(string email, EmailService emailService)
     {
-        var usuario = _context.Usuarios.FirstOrDefault(u => u.Correo == email);
-        if (usuario == null) return false;
+        try
+        {
+            var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.Correo == email);
+            if (cliente == null)
+            {
+                _logger.LogWarning($"Intento de reset de contraseña para correo no existente: {email}");
+                return false;
+            }
 
-        // Generar nueva contraseña temporal
-        var newPassword = GenerateTemporaryPassword();
+            var newPassword = GenerateTemporaryPassword();
+            cliente.Contraseña = BCrypt.Net.BCrypt.HashPassword(newPassword);
 
-        // Hashear la nueva contraseña
-        usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            await _context.SaveChangesAsync();
+            await emailService.SendPasswordResetEmail(email, newPassword);
 
-        _context.SaveChanges();
-
-        // Enviar correo con la nueva contraseña
-        await emailService.SendPasswordResetEmail(email, newPassword);
-
-        return true;
+            _logger.LogInformation($"Contraseña reseteada para: {email}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error al resetear contraseña para: {email}");
+            throw;
+        }
     }
 
-    //contra tenporal
     private string GenerateTemporaryPassword()
     {
         const string chars = "ABCDEFGHJKLMNOPQRSTUVWXYZabcdefghjklmnopqrstuvwxyz0123456789";
@@ -72,28 +101,34 @@ public class AuthService
             .Select(s => s[random.Next(s.Length)]).ToArray());
     }
 
-
-    //genera token jwt
-    public string GenerarTokenJWT(Usuario usuario, IConfiguration configuration)
+    public string GenerarTokenJWT(Cliente cliente, IConfiguration configuration)
     {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
-        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-        var claims = new[]
+        try
         {
-            new Claim(ClaimTypes.NameIdentifier, usuario.IdUsuario.ToString()),
-            new Claim(ClaimTypes.Name, usuario.Nombre),
-            new Claim(ClaimTypes.Email, usuario.Correo),
-            new Claim(ClaimTypes.Role, usuario.IdRolNavigation?.NombreRol ?? "Cliente")
-        };
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-        var token = new JwtSecurityToken(
-            issuer: configuration["Jwt:Issuer"],
-            audience: configuration["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.Now.AddHours(3),
-            signingCredentials: credentials);
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, cliente.IdCliente.ToString()),
+                new Claim(ClaimTypes.Name, cliente.Nombre),
+                new Claim(ClaimTypes.Email, cliente.Correo ?? string.Empty),
+                new Claim(ClaimTypes.Role, "Cliente")
+            };
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+            var token = new JwtSecurityToken(
+                issuer: configuration["Jwt:Issuer"],
+                audience: configuration["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.Now.AddHours(3),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al generar token JWT");
+            throw;
+        }
     }
 }

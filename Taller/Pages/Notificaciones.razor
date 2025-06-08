@@ -1,0 +1,721 @@
+﻿@page "/Notificaciones"
+@inject HttpClient Http
+@using Taller.Models
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Citas Agendadas</PageTitle>
+
+<div class="notifications-container">
+    <!-- Header con logo y título -->
+    <div class="notifications-header">
+        <div class="header-content">
+            <img src="images/logotuning.png" alt="Logo Taller" class="logo-img" />
+            <div class="header-text">
+                <h1>Citas Agendadas</h1>
+                <p class="current-date">@DateTime.Now.ToString("dddd, dd MMMM yyyy", new System.Globalization.CultureInfo("es-ES"))</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="notifications-content">
+        <!-- Tarjeta de resumen -->
+        <div class="summary-card">
+            <div class="summary-item">
+                <div class="summary-icon confirmada">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="summary-text">
+                    <span class="summary-count">@(citasHoy?.Count(c => c.Estado == "Confirmada") ?? 0)</span>
+                    <span class="summary-label">Confirmadas</span>
+                </div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-icon pendiente">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="summary-text">
+                    <span class="summary-count">@(citasHoy?.Count(c => c.Estado == "Pendiente") ?? 0)</span>
+                    <span class="summary-label">Pendientes</span>
+                </div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-icon cancelada">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="summary-text">
+                    <span class="summary-count">@(citasHoy?.Count(c => c.Estado == "Cancelada") ?? 0)</span>
+                    <span class="summary-label">Canceladas</span>
+                </div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-icon total">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="summary-text">
+                    <span class="summary-count">@(citasHoy?.Count ?? 0)</span>
+                    <span class="summary-label">Total hoy</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN DE CITAS DEL DÍA -->
+        <div class="daily-appointments-card">
+            <div class="section-header">
+                <h2><i class="fas fa-calendar-day"></i> Citas para hoy</h2>
+                <button class="btn btn-notify" @onclick="NotificarCitasDelDia" disabled="@(citasHoy == null || !citasHoy.Any() || isNotifying)">
+                    @if (isNotifying)
+                    {
+                        <span><i class="fas fa-spinner fa-spin"></i> Enviando...</span>
+                    }
+                    else
+                    {
+                        <span><i class="fas fa-bell"></i> Notificar a todos</span>
+                    }
+                </button>
+            </div>
+
+            @if (citasHoy == null)
+            {
+                <div class="loading-container">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p>Cargando citas de hoy...</p>
+                </div>
+            }
+            else if (!citasHoy.Any())
+            {
+                <div class="no-appointments">
+                    <i class="fas fa-calendar-check"></i>
+                    <p>No hay citas programadas para hoy</p>
+                    <small>Parece que es un día tranquilo en el taller</small>
+                </div>
+            }
+            else
+            {
+                <div class="appointments-grid">
+                    @foreach (var cita in citasHoy)
+                    {
+                        var cliente = clientes?.FirstOrDefault(c => c.IdCliente == cita.IdCliente);
+                        <div class="appointment-card @cita.Estado.ToLower()">
+                            <div class="appointment-header">
+                                <div class="client-info">
+                                    <h3>@(cliente?.Nombre ?? "Cliente no encontrado")</h3>
+                                    <span class="client-phone">
+                                        <i class="fas fa-phone"></i> @(cliente?.Telefono ?? "N/A")
+                                    </span>
+                                </div>
+                                <span class="badge @GetBadgeClass(cita.Estado)">@cita.Estado</span>
+                            </div>
+                            <div class="appointment-details">
+                                <div class="detail-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>@(cita.Hora?.ToString("hh\\:mm") ?? "Hora no especificada")</span>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(cita.Descripcion))
+                            {
+                                <div class="appointment-desc">
+                                    <p>@cita.Descripcion</p>
+                                </div>
+                            }
+                            <div class="appointment-actions">
+                                <button class="btn btn-sm btn-call"
+                                        @onclick="() => LlamarCliente(cliente?.Telefono)"
+                                        disabled="@string.IsNullOrEmpty(cliente?.Telefono)">
+                                    <i class="fas fa-phone"></i> Llamar
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (showNotificationToast)
+{
+    <div class="notification-toast @(isError ? "error" : "")">
+        <i class="@(isError ? "fas fa-exclamation-circle" : "fas fa-check-circle")"></i>
+        <span>@notificationMessage</span>
+    </div>
+}
+
+@code {
+    private List<Cita>? citas;
+    private List<Cita>? citasHoy;
+    private List<Cliente>? clientes;
+    private bool isNotifying = false;
+    private string notificationMessage = string.Empty;
+    private bool showNotificationToast = false;
+    private bool isError = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarClientes();
+        await CargarCitasHoy();
+    }
+
+    private async Task CargarClientes()
+    {
+        try
+        {
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/Clientes");
+        }
+        catch (Exception ex)
+        {
+            MostrarError($"Error cargando clientes: {ex.Message}");
+        }
+    }
+
+    private async Task CargarCitasHoy()
+    {
+        try
+        {
+            citasHoy = await Http.GetFromJsonAsync<List<Cita>>("api/Citas/Hoy");
+        }
+        catch (Exception ex)
+        {
+            MostrarError($"Error cargando citas de hoy: {ex.Message}");
+        }
+    }
+
+    private string GetBadgeClass(string estado)
+    {
+        return estado switch
+        {
+            "Confirmada" => "badge-success",
+            "Pendiente" => "badge-warning",
+            "Cancelada" => "badge-error",
+            _ => "badge-secondary"
+        };
+    }
+
+    private async Task NotificarCitasDelDia()
+    {
+        if (citasHoy == null || !citasHoy.Any()) return;
+
+        isNotifying = true;
+        isError = false;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsync("api/Notificaciones/notificar-citas-hoy", null);
+            if (response.IsSuccessStatusCode)
+            {
+                notificationMessage = "Notificaciones enviadas correctamente a todos los clientes";
+            }
+            else
+            {
+                isError = true;
+                var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+                notificationMessage = error?.Message ?? "Error al enviar notificaciones";
+            }
+            showNotificationToast = true;
+        }
+        catch (Exception ex)
+        {
+            isError = true;
+            notificationMessage = $"Error al enviar notificaciones: {ex.Message}";
+            showNotificationToast = true;
+        }
+        finally
+        {
+            isNotifying = false;
+            StateHasChanged();
+            await OcultarToastDespuesDeDelay();
+        }
+    }
+
+    private async Task LlamarCliente(string telefono)
+    {
+        if (!string.IsNullOrEmpty(telefono))
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("window.open", $"tel:{telefono}", "_blank");
+            }
+            catch (Exception ex)
+            {
+                isError = true;
+                notificationMessage = $"Error al intentar llamar: {ex.Message}";
+                showNotificationToast = true;
+                StateHasChanged();
+                await OcultarToastDespuesDeDelay();
+            }
+        }
+    }
+
+    private async Task OcultarToastDespuesDeDelay()
+    {
+        await Task.Delay(5000);
+        showNotificationToast = false;
+        StateHasChanged();
+    }
+
+    private void MostrarError(string mensaje)
+    {
+        isError = true;
+        notificationMessage = mensaje;
+        showNotificationToast = true;
+        StateHasChanged();
+    }
+
+    public class ApiErrorResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; }
+    }
+}
+
+<style>
+    /* Estilos base */
+    :root {
+        --primary-color: #6f42c1;
+        --primary-light: #e9e6fb;
+        --primary-dark: #5a32a8;
+        --success-color: #10B981;
+        --warning-color: #F59E0B;
+        --error-color: #EF4444;
+        --text-color: #333;
+        --text-light: #6c757d;
+        --bg-color: #f8f9fa;
+        --card-bg: #ffffff;
+        --border-radius: 12px;
+        --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        line-height: 1.6;
+    }
+
+    /* Contenedor principal */
+    .notifications-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    /* Header */
+    .notifications-header {
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: var(--border-radius);
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        box-shadow: var(--box-shadow);
+    }
+
+    .header-content {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .logo-img {
+        height: 70px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .header-text h1 {
+        font-size: 1.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .current-date {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    /* Contenido */
+    .notifications-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    /* Tarjeta de resumen */
+    .summary-card {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--box-shadow);
+    }
+
+    .summary-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .summary-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+        .summary-icon.confirmada {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .summary-icon.pendiente {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .summary-icon.cancelada {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--error-color);
+        }
+
+        .summary-icon.total {
+            background-color: rgba(111, 66, 193, 0.1);
+            color: var(--primary-color);
+        }
+
+    .summary-text {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .summary-count {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .summary-label {
+        font-size: 0.85rem;
+        color: var(--text-light);
+    }
+
+    /* Tarjeta de citas del día */
+    .daily-appointments-card {
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--box-shadow);
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+        .section-header h2 {
+            color: var(--primary-color);
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    /* Botones */
+    .btn {
+        border: none;
+        border-radius: 6px;
+        padding: 0.6rem 1.2rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-notify {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+        .btn-notify:hover:not(:disabled) {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-notify:disabled {
+            background-color: #b8b5c9;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+    /* Grid de citas */
+    .appointments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    /* Tarjetas de cita */
+    .appointment-card {
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border-left: 4px solid var(--primary-color);
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+        .appointment-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .appointment-card.confirmada {
+            border-left-color: var(--success-color);
+        }
+
+        .appointment-card.pendiente {
+            border-left-color: var(--warning-color);
+        }
+
+        .appointment-card.cancelada {
+            border-left-color: var(--error-color);
+        }
+
+    .appointment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .client-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+        .client-info h3 {
+            font-size: 1.1rem;
+            color: var(--primary-dark);
+            margin-bottom: 0.25rem;
+        }
+
+    .client-phone {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .badge-success {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+    }
+
+    .badge-warning {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+    }
+
+    .badge-error {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: var(--error-color);
+    }
+
+    .badge-secondary {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: var(--text-light);
+    }
+
+    .appointment-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--text-light);
+    }
+
+    .appointment-desc {
+        color: var(--text-color);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        padding: 0.5rem 0;
+        border-top: 1px dashed #eee;
+        border-bottom: 1px dashed #eee;
+        margin: 0.5rem 0;
+    }
+
+    .appointment-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: auto;
+    }
+
+    .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+    }
+
+    .btn-call {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+        .btn-call:hover:not(:disabled) {
+            background-color: #0ea371;
+        }
+
+        .btn-call:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    /* Estados de carga y vacío */
+    .loading-container,
+    .no-appointments {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        text-align: center;
+    }
+
+        .no-appointments i {
+            font-size: 2.5rem;
+            color: #adb5bd;
+            margin-bottom: 1rem;
+        }
+
+        .no-appointments p {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .no-appointments small {
+            color: #adb5bd;
+        }
+
+    /* Toast de notificación */
+    .notification-toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: fadeIn 0.3s ease-out;
+    }
+
+        .notification-toast.error {
+            background-color: var(--error-color);
+        }
+
+        .notification-toast i {
+            font-size: 1.2rem;
+        }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Animaciones */
+    .fa-spinner {
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .header-content {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+        }
+
+        .summary-card {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .appointments-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .summary-card {
+            grid-template-columns: 1fr;
+        }
+
+        .appointment-actions {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>

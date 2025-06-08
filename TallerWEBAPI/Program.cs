@@ -8,14 +8,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add services to the container
 builder.Services.AddControllers();
 
 // Registro de servicios personalizados
 builder.Services.AddScoped<ClienteService>();
 builder.Services.AddScoped<CitaService>();
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddTransient<EmailService>();
+builder.Services.AddScoped<MisCitasService>();
+builder.Services.AddScoped<ProfileService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddHttpContextAccessor();
+
+
 
 
 // Configuración de autenticación JWT
@@ -102,7 +108,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

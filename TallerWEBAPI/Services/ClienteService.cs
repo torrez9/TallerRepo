@@ -12,14 +12,43 @@ namespace TallerWEBAPI.Services
             _context = context;
         }
 
+        //
+        public async Task<Cliente?> ObtenerClientePorIdAsync(int id)
+        {
+            return await _context.Clientes.FindAsync(id);
+        }
+
         public async Task<IEnumerable<Cliente>> ObtenerClientesAsync()
         {
             return await _context.Clientes.ToListAsync();
         }
 
-        public async Task<Cliente?> ObtenerClientePorIdAsync(int id)
+        //
+        public async Task<Cliente?> ObtenerClientePorUsuarioAsync(string usuario)
         {
-            return await _context.Clientes.FindAsync(id);
+            return await _context.Clientes
+                .FirstOrDefaultAsync(c => c.Usuario == usuario);
+        }
+        //
+        public async Task<bool> ActualizarPerfilAsync(int idCliente, Cliente cliente, bool actualizarContraseña = false)
+        {
+            var clienteExistente = await _context.Clientes.FindAsync(idCliente);
+            if (clienteExistente == null)
+                return false;
+
+            // Actualizar solo campos permitidos
+            clienteExistente.Nombre = cliente.Nombre;
+            clienteExistente.Apellido = cliente.Apellido;
+            clienteExistente.Telefono = cliente.Telefono;
+            clienteExistente.Direccion = cliente.Direccion;
+
+            if (actualizarContraseña && !string.IsNullOrEmpty(cliente.Contraseña))
+            {
+                clienteExistente.Contraseña = cliente.Contraseña; // Debería estar hasheada
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> VerificarRelacionesAsync(int idCliente)

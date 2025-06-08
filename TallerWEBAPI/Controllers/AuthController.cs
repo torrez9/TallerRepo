@@ -14,262 +14,329 @@ namespace TallerWEBAPI.Controllers
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
         private readonly MotosTuningContext _context;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(AuthService authService, IConfiguration configuration, EmailService emailService, MotosTuningContext context)
+        public AuthController(
+            AuthService authService,
+            IConfiguration configuration,
+            EmailService emailService,
+            MotosTuningContext context,
+            ILogger<AuthController> logger)
         {
             _authService = authService;
             _configuration = configuration;
             _emailService = emailService;
             _context = context;
+            _logger = logger;
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var usuario = _authService.ValidarCredenciales(request.Correo, request.Contraseña);
-            if (usuario == null)
-                return Unauthorized(new { mensaje = "Credenciales inválidas" });
-
-            return Ok(new
+            try
             {
-                mensaje = "Login exitoso",
-                usuario = new
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var cliente = await _authService.ValidarCredenciales(request.Correo, request.Contraseña);
+                if (cliente == null)
+                    return Unauthorized(new { mensaje = "Credenciales inválidas" });
+
+                var token = _authService.GenerarTokenJWT(cliente, _configuration);
+
+                _logger.LogInformation($"Login exitoso para el usuario: {cliente.Correo}");
+
+                return Ok(new
                 {
-                    usuario.IdUsuario,
-                    usuario.Nombre,
-                    usuario.Correo,
-                    usuario.IdRol,
-                    Rol = usuario.IdRolNavigation?.NombreRol
-                },
-                token = _authService.GenerarTokenJWT(usuario, _configuration)
-            });
+                    mensaje = "Login exitoso",
+                    cliente = new
+                    {
+                        cliente.IdCliente,
+                        cliente.Nombre,
+                        cliente.Correo,
+                        cliente.Usuario,
+                        cliente.Apellido,
+                        cliente.Telefono,
+                        cliente.Direccion
+                    },
+                    token
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en el proceso de login");
+                return StatusCode(500, new { mensaje = "Error interno del servidor" });
+            }
         }
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody] UsuarioRequest request)
+        public async Task<IActionResult> Register([FromBody] ClienteRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var usuario = new Usuario
+            try
             {
-                Nombre = request.Nombre,
-                Apellido = request.Apellido,
-                Telefono = int.Parse(request.Telefono),
-                Correo = request.Correo,
-                Usuario1 = request.NombreUsuario,
-                Contraseña = BCrypt.Net.BCrypt.HashPassword(request.Contraseña),
-                IdRol = 2
-            };
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
 
-            var exito = _authService.RegistrarUsuario(usuario);
+                if (request.Contraseña != request.ConfirmarContraseña)
+                    return BadRequest(new { mensaje = "Las contraseñas no coinciden" });
 
-            if (!exito)
-                return Conflict(new { mensaje = "Ya existe un usuario con ese correo." });
-
-            return Ok(new
-            {
-                mensaje = "Usuario registrado correctamente.",
-                usuario = new
+                var cliente = new Cliente
                 {
-                    usuario.IdUsuario,
-                    usuario.Nombre,
-                    usuario.Correo,
-                    usuario.IdRol
-                }
-            });
+                    Nombre = request.Nombre,
+                    Apellido = request.Apellido,
+                    Telefono = request.Telefono,
+                    Correo = request.Correo,
+                    Usuario = request.NombreUsuario,
+                    Contraseña = BCrypt.Net.BCrypt.HashPassword(request.Contraseña),
+                    Direccion = request.Direccion
+                };
+
+                var exito = await _authService.RegistrarCliente(cliente);
+
+                if (!exito)
+                    return Conflict(new { mensaje = "Ya existe un cliente con ese correo o nombre de usuario." });
+
+                _logger.LogInformation($"Nuevo cliente registrado: {cliente.Correo}");
+
+                return Ok(new
+                {
+                    mensaje = "Cliente registrado correctamente.",
+                    cliente = new
+                    {
+                        cliente.IdCliente,
+                        cliente.Nombre,
+                        cliente.Correo,
+                        cliente.Usuario,
+                        cliente.Apellido,
+                        cliente.Telefono,
+                        cliente.Direccion
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en el registro de cliente");
+                return StatusCode(500, new { mensaje = "Error interno del servidor" });
+            }
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             try
             {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
                 var result = await _authService.ResetPassword(request.Email, _emailService);
-                return result ? Ok(new { mensaje = "Se ha enviado una nueva contraseña a tu correo electrónico" })
-                             : BadRequest(new { mensaje = "No se encontró un usuario con ese correo electrónico" });
+
+                if (!result)
+                    return BadRequest(new { mensaje = "No se encontró un cliente con ese correo electrónico" });
+
+                _logger.LogInformation($"Contraseña reseteada para: {request.Email}");
+
+                return Ok(new { mensaje = "Se ha enviado una nueva contraseña a tu correo electrónico" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensaje = $"Error al restablecer contraseña: {ex.Message}" });
+                _logger.LogError(ex, $"Error al restablecer contraseña para: {request.Email}");
+                return StatusCode(500, new { mensaje = "Error interno del servidor" });
             }
         }
 
-        [HttpGet("user/{id}")]
-        public IActionResult GetUserData(int id)
+        [HttpGet("cliente/{id}")]
+        public async Task<IActionResult> GetClienteData(int id)
         {
-            var usuario = _context.Usuarios.Include(u => u.IdRolNavigation).FirstOrDefault(u => u.IdUsuario == id);
-            if (usuario == null)
-                return NotFound(new { mensaje = "Usuario no encontrado" });
-
-            return Ok(new
-            {
-                usuario.IdUsuario,
-                usuario.Nombre,
-                usuario.Apellido,
-                usuario.Telefono,
-                usuario.Correo,
-                usuario.Usuario1,
-                Rol = usuario.IdRolNavigation?.NombreRol
-            });
-        }
-
-        [HttpPut("user/{id}")]
-        public IActionResult UpdateUser(int id, [FromBody] UpdateUserRequest request)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             try
             {
-                var usuario = _context.Usuarios.Find(id);
-                if (usuario == null)
-                    return NotFound(new { mensaje = "Usuario no encontrado" });
+                var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.IdCliente == id);
+                if (cliente == null)
+                    return NotFound(new { mensaje = "Cliente no encontrado" });
+
+                return Ok(new
+                {
+                    cliente.IdCliente,
+                    cliente.Nombre,
+                    cliente.Apellido,
+                    cliente.Telefono,
+                    cliente.Correo,
+                    cliente.Usuario,
+                    cliente.Direccion
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error al obtener datos del cliente ID: {id}");
+                return StatusCode(500, new { mensaje = "Error interno del servidor" });
+            }
+        }
+
+        [HttpPut("cliente/{id}")]
+        public async Task<IActionResult> UpdateCliente(int id, [FromBody] UpdateClienteRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var cliente = await _context.Clientes.FindAsync(id);
+                if (cliente == null)
+                    return NotFound(new { mensaje = "Cliente no encontrado" });
 
                 if (!string.IsNullOrEmpty(request.NombreUsuario) &&
-                    _context.Usuarios.Any(u => u.Usuario1 == request.NombreUsuario && u.IdUsuario != id))
+                    await _context.Clientes.AnyAsync(c => c.Usuario == request.NombreUsuario && c.IdCliente != id))
                 {
                     return BadRequest(new { mensaje = "El nombre de usuario ya está en uso" });
                 }
 
-                usuario.Nombre = request.Nombre ?? usuario.Nombre;
-                usuario.Apellido = request.Apellido ?? usuario.Apellido;
-                usuario.Telefono = request.Telefono ?? usuario.Telefono;
-                usuario.Usuario1 = request.NombreUsuario ?? usuario.Usuario1;
+                cliente.Nombre = request.Nombre ?? cliente.Nombre;
+                cliente.Apellido = request.Apellido ?? cliente.Apellido;
+                cliente.Telefono = request.Telefono ?? cliente.Telefono;
+                cliente.Usuario = request.NombreUsuario ?? cliente.Usuario;
+                cliente.Direccion = request.Direccion ?? cliente.Direccion;
 
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Cliente actualizado ID: {id}");
 
                 return Ok(new
                 {
-                    mensaje = "Usuario actualizado correctamente",
-                    usuario = new
+                    mensaje = "Cliente actualizado correctamente",
+                    cliente = new
                     {
-                        usuario.IdUsuario,
-                        usuario.Nombre,
-                        usuario.Apellido,
-                        usuario.Telefono,
-                        usuario.Correo,
-                        usuario.Usuario1
+                        cliente.IdCliente,
+                        cliente.Nombre,
+                        cliente.Apellido,
+                        cliente.Telefono,
+                        cliente.Correo,
+                        cliente.Usuario,
+                        cliente.Direccion
                     }
                 });
             }
-            catch (DbUpdateException ex)
+            catch (Exception ex)
             {
-                return StatusCode(500, new { mensaje = $"Error al actualizar usuario: {ex.InnerException?.Message ?? ex.Message}" });
+                _logger.LogError(ex, $"Error al actualizar cliente ID: {id}");
+                return StatusCode(500, new { mensaje = "Error interno del servidor" });
             }
         }
 
         [HttpPost("change-password")]
-        public IActionResult ChangePassword([FromBody] ChangePasswordRequest request)
+        public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            if (request.NuevaContraseña != request.ConfirmarContraseña)
-                return BadRequest(new { mensaje = "Las contraseñas no coinciden" });
-
-            var usuario = _context.Usuarios.Find(request.UsuarioId);
-            if (usuario == null)
-                return NotFound(new { mensaje = "Usuario no encontrado" });
-
-            if (!BCrypt.Net.BCrypt.Verify(request.ContraseñaActual, usuario.Contraseña))
-                return BadRequest(new { mensaje = "Contraseña actual incorrecta" });
-
-            if (BCrypt.Net.BCrypt.Verify(request.NuevaContraseña, usuario.Contraseña))
-                return BadRequest(new { mensaje = "La nueva contraseña debe ser diferente a la actual" });
-
-            usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(request.NuevaContraseña);
-
             try
             {
-                _context.SaveChanges();
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                if (request.NuevaContraseña != request.ConfirmarContraseña)
+                    return BadRequest(new { mensaje = "Las contraseñas no coinciden" });
+
+                var cliente = await _context.Clientes.FindAsync(request.ClienteId);
+                if (cliente == null)
+                    return NotFound(new { mensaje = "Cliente no encontrado" });
+
+                if (!BCrypt.Net.BCrypt.Verify(request.ContraseñaActual, cliente.Contraseña))
+                    return BadRequest(new { mensaje = "Contraseña actual incorrecta" });
+
+                if (BCrypt.Net.BCrypt.Verify(request.NuevaContraseña, cliente.Contraseña))
+                    return BadRequest(new { mensaje = "La nueva contraseña debe ser diferente a la actual" });
+
+                cliente.Contraseña = BCrypt.Net.BCrypt.HashPassword(request.NuevaContraseña);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Contraseña cambiada para cliente ID: {request.ClienteId}");
+
                 return Ok(new { mensaje = "Contraseña cambiada exitosamente" });
             }
-            catch (DbUpdateException ex)
+            catch (Exception ex)
             {
-                return StatusCode(500, new { mensaje = $"Error al cambiar contraseña: {ex.InnerException?.Message ?? ex.Message}" });
+                _logger.LogError(ex, $"Error al cambiar contraseña para cliente ID: {request.ClienteId}");
+                return StatusCode(500, new { mensaje = "Error interno del servidor" });
             }
         }
 
         // Modelos de request con validaciones
         public class LoginRequest
         {
-            [Required]
-            [EmailAddress]
+            [Required(ErrorMessage = "El correo es requerido")]
+            [EmailAddress(ErrorMessage = "Correo electrónico no válido")]
             public string Correo { get; set; }
 
-            [Required]
+            [Required(ErrorMessage = "La contraseña es requerida")]
             public string Contraseña { get; set; }
         }
 
-        public class UsuarioRequest
+        public class ClienteRequest
         {
-            [Required]
-            [MinLength(2)]
+            [Required(ErrorMessage = "El nombre es requerido")]
+            [MinLength(2, ErrorMessage = "El nombre debe tener al menos 2 caracteres")]
             public string Nombre { get; set; }
 
-            [Required]
-            [MinLength(2)]
+            [Required(ErrorMessage = "El apellido es requerido")]
+            [MinLength(2, ErrorMessage = "El apellido debe tener al menos 2 caracteres")]
             public string Apellido { get; set; }
 
-            [Required]
-            [Phone]
+            [Required(ErrorMessage = "El teléfono es requerido")]
+            [Phone(ErrorMessage = "Teléfono no válido")]
             public string Telefono { get; set; }
 
-            [Required]
-            [EmailAddress]
+            [Required(ErrorMessage = "El correo es requerido")]
+            [EmailAddress(ErrorMessage = "Correo electrónico no válido")]
             public string Correo { get; set; }
 
-            [Required]
-            [MinLength(4)]
+            [Required(ErrorMessage = "El nombre de usuario es requerido")]
+            [MinLength(4, ErrorMessage = "El nombre de usuario debe tener al menos 4 caracteres")]
             public string NombreUsuario { get; set; }
 
-            [Required]
-            [MinLength(6)]
+            [Required(ErrorMessage = "La contraseña es requerida")]
+            [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
             public string Contraseña { get; set; }
+
+            [Required(ErrorMessage = "Debes confirmar la contraseña")]
+            [Compare("Contraseña", ErrorMessage = "Las contraseñas no coinciden")]
+            public string ConfirmarContraseña { get; set; }
+
+            public string? Direccion { get; set; }
         }
 
         public class ResetPasswordRequest
         {
-            [Required]
-            [EmailAddress]
+            [Required(ErrorMessage = "El correo es requerido")]
+            [EmailAddress(ErrorMessage = "Correo electrónico no válido")]
             public string Email { get; set; }
         }
 
-        public class UpdateUserRequest
+        public class UpdateClienteRequest
         {
-            [MinLength(2)]
-            public string Nombre { get; set; }
+            [MinLength(2, ErrorMessage = "El nombre debe tener al menos 2 caracteres")]
+            public string? Nombre { get; set; }
 
-            [MinLength(2)]
-            public string Apellido { get; set; }
+            [MinLength(2, ErrorMessage = "El apellido debe tener al menos 2 caracteres")]
+            public string? Apellido { get; set; }
 
-            [Range(1000000, 9999999999)]
-            public int? Telefono { get; set; }
+            [Phone(ErrorMessage = "Teléfono no válido")]
+            public string? Telefono { get; set; }
 
-            [MinLength(4)]
-            public string NombreUsuario { get; set; }
+            [MinLength(4, ErrorMessage = "El nombre de usuario debe tener al menos 4 caracteres")]
+            public string? NombreUsuario { get; set; }
+
+            public string? Direccion { get; set; }
         }
 
-        public class ChangePasswordRequest
+        public class AuthChangePasswordRequest
         {
-            [Required]
-            public int UsuarioId { get; set; }
+            [Required(ErrorMessage = "El ID de cliente es requerido")]
+            public int ClienteId { get; set; }
 
-            [Required]
+            [Required(ErrorMessage = "La contraseña actual es requerida")]
             public string ContraseñaActual { get; set; }
 
-            [Required]
-            [MinLength(6)]
+            [Required(ErrorMessage = "La nueva contraseña es requerida")]
+            [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
             public string NuevaContraseña { get; set; }
 
-            [Required]
+            [Required(ErrorMessage = "Debes confirmar la nueva contraseña")]
             [Compare("NuevaContraseña", ErrorMessage = "Las contraseñas no coinciden")]
             public string ConfirmarContraseña { get; set; }
         }

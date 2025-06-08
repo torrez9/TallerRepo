@@ -22,7 +22,23 @@ public class EmailService
 
         var bodyBuilder = new BodyBuilder();
         bodyBuilder.HtmlBody = $@"
-        <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: #f9f9f9;"">
+    <html>
+    <head>
+        <style>
+            @media only screen and (max-width: 600px) {{
+                .container {{
+                    padding: 10px !important;
+                    width: 100% !important;
+                }}
+                .button {{
+                    font-size: 16px !important;
+                    padding: 10px !important;
+                }}
+            }}
+        </style>
+    </head>
+    <body style=""margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9f9f9;"">
+        <div class=""container"" style=""max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: #ffffff;"">
             <div style=""text-align: center;"">
                 <h2 style=""color: #2e7d32;"">🔐 Recuperación de Contraseña</h2>
             </div>
@@ -30,13 +46,15 @@ public class EmailService
             <p style=""font-size: 16px; color: #333;"">Hemos recibido una solicitud para restablecer tu contraseña de acceso al sistema de <strong>Taller Motos Tuning</strong>.</p>
             <p style=""font-size: 16px; color: #333;"">Tu nueva contraseña temporal es:</p>
             <div style=""text-align: center; margin: 20px 0;"">
-                <span style=""display: inline-block; background-color: #2e7d32; color: white; padding: 10px 20px; border-radius: 5px; font-size: 18px; font-weight: bold;"">{newPassword}</span>
+                <span class=""button"" style=""display: inline-block; background-color: #2e7d32; color: white; padding: 12px 24px; border-radius: 5px; font-size: 18px; font-weight: bold;"">{newPassword}</span>
             </div>
             <p style=""font-size: 16px; color: #333;"">Por tu seguridad, te recomendamos cambiar esta contraseña una vez que inicies sesión.</p>
             <hr style=""border: none; border-top: 1px solid #ccc; margin: 30px 0;"">
             <p style=""font-size: 14px; color: #666;"">Si no solicitaste este cambio, por favor ignora este correo o contacta con nuestro equipo de soporte.</p>
             <p style=""font-size: 14px; color: #666;"">Atentamente,<br>Equipo de Taller Motos Tuning</p>
-        </div>";
+        </div>
+    </body>
+    </html>";
 
         email.Body = bodyBuilder.ToMessageBody();
 
@@ -46,4 +64,5 @@ public class EmailService
         await smtp.SendAsync(email);
         await smtp.DisconnectAsync(true);
     }
+
 }

@@ -42,28 +42,53 @@
         <a class="dismiss">🗙</a>
     </div>
 
-    <!-- Bootstrap JS (necesario para algunos componentes, después de jQuery si lo usas) -->
+    <!-- jQuery (si es necesario para algún componente) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Script de autenticación (si lo usas) -->
+    <!-- Script de autenticación - DEBE IR ANTES DE BLAZOR -->
     <script src="js/authManager.js"></script>
 
-    <!-- Chart.js (LIBRERÍA, SOLO UNA VEZ Y LA CORRECTA) -->
+    <!-- Script para inicializar authManager inmediatamente -->
+    <script>
+        // Asegurar que el objeto authManager exista antes que cualquier otro script
+        window.authManager = window.authManager || {};
+
+        // Implementación básica si el archivo authManager.js no se carga
+        window.authManager.storeUserData = window.authManager.storeUserData || function (token, userData) {
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('userData', userData);
+            console.log('Datos almacenados en implementación de respaldo');
+        };
+
+        window.authManager.getToken = window.authManager.getToken || function () {
+            return localStorage.getItem('authToken') || '';
+        };
+
+        window.authManager.getUserData = window.authManager.getUserData || function () {
+            return localStorage.getItem('userData') || '';
+        };
+
+        window.authManager.clearUserData = window.authManager.clearUserData || function () {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+        };
+    </script>
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
 
-    <!-- Tu script de gráficos personalizado, después de Chart.js -->
+    <!-- Script de gráficos personalizado -->
     <script src="js/charts.js" asp-append-version="true"></script>
 
-    <!-- xlsx para Excel -->
+    <!-- Librerías para exportación -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- jsPDF y plugin autotable para PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
 
-
-    <!-- (Opcional) Otro script JS tuyo (si es necesario, por ejemplo, graficos.js) -->
-    <!--<script src="js/graficos.js"></script>-->
-    <!-- Blazor WebAssembly -->
+    <!-- Blazor WebAssembly - DEBE IR AL FINAL -->
     <script src="_framework/blazor.webassembly.js"></script>
 
     <!-- Service Worker -->
@@ -73,6 +98,20 @@
                 .then(registration => console.log('ServiceWorker registrado con scope: ', registration.scope))
                 .catch(err => console.log('Error al registrar ServiceWorker: ', err));
         }
+
+        // Verificación de que authManager está disponible
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.authManager) {
+                console.error('authManager no está definido');
+            } else {
+                console.log('authManager está listo', {
+                    storeUserData: typeof window.authManager.storeUserData,
+                    getToken: typeof window.authManager.getToken,
+                    getUserData: typeof window.authManager.getUserData,
+                    clearUserData: typeof window.authManager.clearUserData
+                });
+            }
+        });
     </script>
 </body>
 </html>
