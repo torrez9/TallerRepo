@@ -5,9 +5,9 @@ namespace TallerWEBAPI.Services
 {
     public class CitaService
     {
-        private readonly MotosTuning3Context _context;
+        private readonly MotosTuningContext _context;
 
-        public CitaService(MotosTuning3Context context)
+        public CitaService(MotosTuningContext context)
         {
             _context = context;
         }

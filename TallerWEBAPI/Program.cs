@@ -55,7 +55,7 @@ builder.Services.AddCors(options =>
 });
 
 // Configuración del DbContext
-builder.Services.AddDbContext<MotosTuning3Context>(options =>
+builder.Services.AddDbContext<MotosTuningContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("MotosTuningConnection"),
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(

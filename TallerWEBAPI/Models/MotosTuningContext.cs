@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TallerWEBAPI.Models;
 
-public partial class MotosTuning3Context : DbContext
+public partial class MotosTuningContext : DbContext
 {
-    public MotosTuning3Context()
+    public MotosTuningContext()
     {
     }
 
-    public MotosTuning3Context(DbContextOptions<MotosTuning3Context> options)
+    public MotosTuningContext(DbContextOptions<MotosTuningContext> options)
         : base(options)
     {
     }
@@ -47,7 +47,7 @@ public partial class MotosTuning3Context : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=BLADE15\\SQLEXPRESS;Database=MotosTuning3;Trusted_Connection=True;TrustServerCertificate=True;");
+        => optionsBuilder.UseSqlServer("Data Source=BLADE15\\SQLEXPRESS;Database=MotosTuning;Trusted_Connection=True;TrustServerCertificate=True;");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,9 +78,7 @@ public partial class MotosTuning3Context : DbContext
             entity.Property(e => e.Apellido)
                 .HasMaxLength(50)
                 .IsUnicode(false);
-            entity.Property(e => e.Contraseña)
-                .HasMaxLength(50)
-                .IsUnicode(false);
+            entity.Property(e => e.Contraseña).HasMaxLength(100);
             entity.Property(e => e.Correo)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -157,7 +155,7 @@ public partial class MotosTuning3Context : DbContext
 
         modelBuilder.Entity<Factura>(entity =>
         {
-            entity.HasKey(e => e.IdFactura).HasName("PK__Facturas__50E7BAF1EC2D2DB0");
+            entity.HasKey(e => e.IdFactura).HasName("PK__Facturas__50E7BAF1F4343CC3");
 
             entity.Property(e => e.EstadoPago)
                 .HasMaxLength(50)
@@ -181,7 +179,7 @@ public partial class MotosTuning3Context : DbContext
 
         modelBuilder.Entity<Inventario>(entity =>
         {
-            entity.HasKey(e => e.IdPieza).HasName("PK__Inventar__40735AA6EF9ED8DF");
+            entity.HasKey(e => e.IdPieza).HasName("PK__Inventar__40735AA6BF2B5447");
 
             entity.ToTable("Inventario");
 
@@ -223,7 +221,7 @@ public partial class MotosTuning3Context : DbContext
 
         modelBuilder.Entity<Pago>(entity =>
         {
-            entity.HasKey(e => e.IdPago).HasName("PK__Pagos__FC851A3AB97F04E0");
+            entity.HasKey(e => e.IdPago).HasName("PK__Pagos__FC851A3A76170740");
 
             entity.Property(e => e.FechaPago)
                 .HasDefaultValueSql("(getdate())")
@@ -241,9 +239,9 @@ public partial class MotosTuning3Context : DbContext
 
         modelBuilder.Entity<Proveedore>(entity =>
         {
-            entity.HasKey(e => e.IdProveedor).HasName("PK__Proveedo__E8B631AF9AD5D702");
+            entity.HasKey(e => e.IdProveedor).HasName("PK__Proveedo__E8B631AFB05E0283");
 
-            entity.HasIndex(e => e.Correo, "UQ__Proveedo__60695A19F4F709EF").IsUnique();
+            entity.HasIndex(e => e.Correo, "UQ__Proveedo__60695A190DA8FBC0").IsUnique();
 
             entity.Property(e => e.Correo)
                 .HasMaxLength(100)
@@ -294,7 +292,7 @@ public partial class MotosTuning3Context : DbContext
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.IdRol).HasName("PK__Roles__2A49584CB651C955");
+            entity.HasKey(e => e.IdRol).HasName("PK__Roles__2A49584CB74DA28B");
 
             entity.Property(e => e.NombreRol)
                 .HasMaxLength(50)

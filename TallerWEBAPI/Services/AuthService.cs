@@ -8,10 +8,10 @@ using TallerWEBAPI.Models;
 
 public class AuthService
 {
-    private readonly MotosTuning3Context _context;
+    private readonly MotosTuningContext _context;
     private readonly ILogger<AuthService> _logger;
 
-    public AuthService(MotosTuning3Context context, ILogger<AuthService> logger)
+    public AuthService(MotosTuningContext context, ILogger<AuthService> logger)
     {
         _context = context;
         _logger = logger;

@@ -13,14 +13,14 @@ namespace TallerWEBAPI.Controllers
         private readonly AuthService _authService;
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
-        private readonly MotosTuning3Context _context;
+        private readonly MotosTuningContext _context;
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             AuthService authService,
             IConfiguration configuration,
             EmailService emailService,
-            MotosTuning3Context context,
+            MotosTuningContext context,
             ILogger<AuthController> logger)
         {
             _authService = authService;
