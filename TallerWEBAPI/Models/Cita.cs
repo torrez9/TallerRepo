@@ -9,7 +9,7 @@ public partial class Cita
     public int IdCliente { get; set; }
     public DateOnly FechaCita { get; set; }
     public string? Estado { get; set; }
-    public string? Descripcion { get; set; }
     public TimeOnly? Hora { get; set; }
+    public string? Descripcion { get; set; }
     public virtual Cliente? IdClienteNavigation { get; set; } = null!;
 }

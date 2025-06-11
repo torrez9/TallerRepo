@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TallerWEBAPI.Models;
 
-public partial class MotosTuningContext : DbContext
+public partial class MotosTuning3Context : DbContext
 {
-    public MotosTuningContext()
+    public MotosTuning3Context()
     {
     }
 
-    public MotosTuningContext(DbContextOptions<MotosTuningContext> options)
+    public MotosTuning3Context(DbContextOptions<MotosTuning3Context> options)
         : base(options)
     {
     }
@@ -47,13 +47,13 @@ public partial class MotosTuningContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=BLADE15\\SQLEXPRESS;Database=MotosTuning;Trusted_Connection=True;TrustServerCertificate=True;");
+        => optionsBuilder.UseSqlServer("Data Source=BLADE15\\SQLEXPRESS;Database=MotosTuning3;Trusted_Connection=True;TrustServerCertificate=True;");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Cita>(entity =>
         {
-            entity.HasKey(e => e.IdCita).HasName("PK__Citas__394B02026B6C86F6");
+            entity.HasKey(e => e.IdCita).HasName("PK__Citas__394B0202E562C01D");
 
             entity.Property(e => e.Descripcion)
                 .HasMaxLength(300)
@@ -66,17 +66,21 @@ public partial class MotosTuningContext : DbContext
             entity.HasOne(d => d.IdClienteNavigation).WithMany(p => p.Cita)
                 .HasForeignKey(d => d.IdCliente)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Citas__IdCliente__5FB337D6");
+                .HasConstraintName("FK__Citas__IdCliente__6FE99F9F");
         });
 
         modelBuilder.Entity<Cliente>(entity =>
         {
-            entity.HasKey(e => e.IdCliente).HasName("PK__Clientes__D594664271BF2E24");
+            entity.HasKey(e => e.IdCliente).HasName("PK__Clientes__D594664279BDBB17");
 
-            entity.HasIndex(e => e.Correo, "UQ__Clientes__60695A19F457B8A1").IsUnique();
+            entity.HasIndex(e => e.Correo, "UQ__Clientes__60695A1916F06CCB").IsUnique();
 
-            entity.Property(e => e.Apellido).HasMaxLength(100);
-            entity.Property(e => e.Contraseña).HasMaxLength(100);
+            entity.Property(e => e.Apellido)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.Contraseña)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.Correo)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -89,29 +93,14 @@ public partial class MotosTuningContext : DbContext
             entity.Property(e => e.Telefono)
                 .HasMaxLength(15)
                 .IsUnicode(false);
-            entity.Property(e => e.Usuario).HasMaxLength(50);
-
-            entity.HasMany(d => d.IdMotos).WithMany(p => p.IdClientes)
-                .UsingEntity<Dictionary<string, object>>(
-                    "ClienteMoto",
-                    r => r.HasOne<Moto>().WithMany()
-                        .HasForeignKey("IdMoto")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK__ClienteMo__IdMot__44FF419A"),
-                    l => l.HasOne<Cliente>().WithMany()
-                        .HasForeignKey("IdCliente")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK__ClienteMo__IdCli__619B8048"),
-                    j =>
-                    {
-                        j.HasKey("IdCliente", "IdMoto").HasName("PK__ClienteM__76A88B1D6E37A7B1");
-                        j.ToTable("ClienteMoto");
-                    });
+            entity.Property(e => e.Usuario)
+                .HasMaxLength(50)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<Compra>(entity =>
         {
-            entity.HasKey(e => e.IdCompra).HasName("PK__Compras__0A5CDB5C0FB5A6B9");
+            entity.HasKey(e => e.IdCompra).HasName("PK__Compras__0A5CDB5CBE4AA602");
 
             entity.Property(e => e.FechaCompra)
                 .HasDefaultValueSql("(getdate())")
@@ -120,25 +109,25 @@ public partial class MotosTuningContext : DbContext
 
             entity.HasOne(d => d.IdProveedorNavigation).WithMany(p => p.Compras)
                 .HasForeignKey(d => d.IdProveedor)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Compras__IdProve__656C112C");
+                .HasConstraintName("FK_Compras_Proveedores");
         });
 
         modelBuilder.Entity<CompraPieza>(entity =>
         {
-            entity.HasKey(e => new { e.IdCompra, e.IdPieza }).HasName("PK__CompraPi__7E5BEEF64F3B077D");
+            entity.HasKey(e => e.IdCompraPieza);
 
+            entity.Property(e => e.IdCompraPieza).ValueGeneratedNever();
+            entity.Property(e => e.Importe).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.PrecioUnitario).HasColumnType("decimal(10, 2)");
 
             entity.HasOne(d => d.IdCompraNavigation).WithMany(p => p.CompraPiezas)
                 .HasForeignKey(d => d.IdCompra)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__CompraPie__IdCom__6383C8BA");
+                .HasConstraintName("FK_CompraPiezas_Compras");
 
             entity.HasOne(d => d.IdPiezaNavigation).WithMany(p => p.CompraPiezas)
                 .HasForeignKey(d => d.IdPieza)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__CompraPie__IdPie__6477ECF3");
+                .HasConstraintName("FK_CompraPiezas_Inventario");
         });
 
         modelBuilder.Entity<DetalleReparacion>(entity =>
@@ -147,10 +136,15 @@ public partial class MotosTuningContext : DbContext
 
             entity.ToTable("Detalle_Reparacion");
 
-            entity.Property(e => e.IdDetalleRep)
-                .ValueGeneratedNever()
-                .HasColumnName("Id_DetalleRep");
+            entity.Property(e => e.IdDetalleRep).HasColumnName("Id_DetalleRep");
+            entity.Property(e => e.CantPieza).HasColumnName("Cant_pieza");
+            entity.Property(e => e.CostoPieza).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.CostoServicio).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.Importe).HasColumnType("decimal(10, 2)");
+
+            entity.HasOne(d => d.IdPiezaNavigation).WithMany(p => p.DetalleReparacions)
+                .HasForeignKey(d => d.IdPieza)
+                .HasConstraintName("FK_Detalle_Reparacion_Inventario");
 
             entity.HasOne(d => d.IdReparacionesNavigation).WithMany(p => p.DetalleReparacions)
                 .HasForeignKey(d => d.IdReparaciones)
@@ -163,8 +157,12 @@ public partial class MotosTuningContext : DbContext
 
         modelBuilder.Entity<Factura>(entity =>
         {
-            entity.HasKey(e => e.IdFactura).HasName("PK__Facturas__50E7BAF11A264F69");
+            entity.HasKey(e => e.IdFactura).HasName("PK__Facturas__50E7BAF1EC2D2DB0");
 
+            entity.Property(e => e.EstadoPago)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("Estado_Pago");
             entity.Property(e => e.FechaFactura)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
@@ -173,24 +171,30 @@ public partial class MotosTuningContext : DbContext
             entity.HasOne(d => d.IdClienteNavigation).WithMany(p => p.Facturas)
                 .HasForeignKey(d => d.IdCliente)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Facturas__IdClie__68487DD7");
+                .HasConstraintName("FK__Facturas__IdClie__778AC167");
 
             entity.HasOne(d => d.IdReparacionNavigation).WithMany(p => p.Facturas)
                 .HasForeignKey(d => d.IdReparacion)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Facturas__IdRepa__693CA210");
+                .HasConstraintName("FK__Facturas__IdRepa__787EE5A0");
         });
 
         modelBuilder.Entity<Inventario>(entity =>
         {
-            entity.HasKey(e => e.IdPieza).HasName("PK__Inventar__40735AA624B3F32C");
+            entity.HasKey(e => e.IdPieza).HasName("PK__Inventar__40735AA6EF9ED8DF");
 
             entity.ToTable("Inventario");
 
             entity.Property(e => e.NombrePieza)
                 .HasMaxLength(100)
                 .IsUnicode(false);
-            entity.Property(e => e.Precio).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.PrecioActual)
+                .HasColumnType("decimal(10, 2)")
+                .HasColumnName("Precio_Actual");
+
+            entity.HasOne(d => d.IdProveedorNavigation).WithMany(p => p.Inventarios)
+                .HasForeignKey(d => d.IdProveedor)
+                .HasConstraintName("FK_Inventario_Proveedores");
         });
 
         modelBuilder.Entity<Moto>(entity =>
@@ -202,8 +206,6 @@ public partial class MotosTuningContext : DbContext
             entity.Property(e => e.Color)
                 .HasMaxLength(20)
                 .IsUnicode(false);
-            entity.Property(e => e.EstadoEntrada).HasColumnType("text");
-            entity.Property(e => e.EstadoSalida).HasColumnType("text");
             entity.Property(e => e.Marca)
                 .HasMaxLength(50)
                 .IsUnicode(false);
@@ -221,7 +223,7 @@ public partial class MotosTuningContext : DbContext
 
         modelBuilder.Entity<Pago>(entity =>
         {
-            entity.HasKey(e => e.IdPago).HasName("PK__Pagos__FC851A3AC131BBC3");
+            entity.HasKey(e => e.IdPago).HasName("PK__Pagos__FC851A3AB97F04E0");
 
             entity.Property(e => e.FechaPago)
                 .HasDefaultValueSql("(getdate())")
@@ -234,14 +236,14 @@ public partial class MotosTuningContext : DbContext
             entity.HasOne(d => d.IdFacturaNavigation).WithMany(p => p.Pagos)
                 .HasForeignKey(d => d.IdFactura)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Pagos__IdFactura__6B24EA82");
+                .HasConstraintName("FK__Pagos__IdFactura__66603565");
         });
 
         modelBuilder.Entity<Proveedore>(entity =>
         {
-            entity.HasKey(e => e.IdProveedor).HasName("PK__Proveedo__E8B631AFB7C6D08E");
+            entity.HasKey(e => e.IdProveedor).HasName("PK__Proveedo__E8B631AF9AD5D702");
 
-            entity.HasIndex(e => e.Correo, "UQ__Proveedo__60695A19D4D951AD").IsUnique();
+            entity.HasIndex(e => e.Correo, "UQ__Proveedo__60695A19F4F709EF").IsUnique();
 
             entity.Property(e => e.Correo)
                 .HasMaxLength(100)
@@ -256,28 +258,23 @@ public partial class MotosTuningContext : DbContext
 
         modelBuilder.Entity<ReparacionPieza>(entity =>
         {
-            entity.HasKey(e => new { e.IdReparacion, e.IdPieza }).HasName("PK__Reparaci__A8F44AAA94B89A0B");
-
-            entity.HasOne(d => d.IdPiezaNavigation).WithMany(p => p.ReparacionPiezas)
-                .HasForeignKey(d => d.IdPieza)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Reparacio__IdPie__6E01572D");
-
-            entity.HasOne(d => d.IdReparacionNavigation).WithMany(p => p.ReparacionPiezas)
-                .HasForeignKey(d => d.IdReparacion)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__Reparacio__IdRep__6EF57B66");
+            entity.HasKey(e => new { e.IdReparacion, e.IdPieza }).HasName("PK__Reparaci__A8F44AAA1D34936F");
         });
 
         modelBuilder.Entity<Reparacione>(entity =>
         {
-            entity.HasKey(e => e.IdReparacion).HasName("PK__Reparaci__DCF37F00F89380A4");
+            entity.HasKey(e => e.IdReparacion).HasName("PK__Reparaci__DCF37F00249F0F0B");
 
-            entity.Property(e => e.Descripcion).HasColumnType("text");
+            entity.Property(e => e.Descripcion)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.Estado)
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasDefaultValue("En proceso");
+            entity.Property(e => e.Fase)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.FechaFin).HasColumnType("datetime");
             entity.Property(e => e.FechaInicio)
                 .HasDefaultValueSql("(getdate())")
@@ -297,7 +294,7 @@ public partial class MotosTuningContext : DbContext
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.IdRol).HasName("PK__Roles__2A49584C8954F465");
+            entity.HasKey(e => e.IdRol).HasName("PK__Roles__2A49584CB651C955");
 
             entity.Property(e => e.NombreRol)
                 .HasMaxLength(50)
@@ -308,7 +305,6 @@ public partial class MotosTuningContext : DbContext
         {
             entity.HasKey(e => e.IdServicio);
 
-            entity.Property(e => e.IdServicio).ValueGeneratedNever();
             entity.Property(e => e.PrecioServicio)
                 .HasColumnType("decimal(10, 2)")
                 .HasColumnName("Precio_Servicio");

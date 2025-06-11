@@ -5,15 +5,19 @@ namespace TallerWEBAPI.Models;
 
 public partial class CompraPieza
 {
-    public int IdCompra { get; set; }
+    public int IdCompraPieza { get; set; }
 
     public int IdPieza { get; set; }
+
+    public int? IdCompra { get; set; }
 
     public int CantidadComprada { get; set; }
 
     public decimal PrecioUnitario { get; set; }
 
-    public virtual Compra IdCompraNavigation { get; set; } = null!;
+    public decimal? Importe { get; set; }
+
+    public virtual Compra? IdCompraNavigation { get; set; }
 
     public virtual Inventario IdPiezaNavigation { get; set; } = null!;
 }

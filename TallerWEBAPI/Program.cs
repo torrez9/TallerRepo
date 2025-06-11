@@ -20,7 +20,7 @@ builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddHttpContextAccessor();
-
+//
 
 
 
@@ -55,7 +55,7 @@ builder.Services.AddCors(options =>
 });
 
 // Configuración del DbContext
-builder.Services.AddDbContext<MotosTuningContext>(options =>
+builder.Services.AddDbContext<MotosTuning3Context>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("MotosTuningConnection"),
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(

@@ -13,14 +13,14 @@ namespace TallerWEBAPI.Controllers
         private readonly AuthService _authService;
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
-        private readonly MotosTuningContext _context;
+        private readonly MotosTuning3Context _context;
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             AuthService authService,
             IConfiguration configuration,
             EmailService emailService,
-            MotosTuningContext context,
+            MotosTuning3Context context,
             ILogger<AuthController> logger)
         {
             _authService = authService;
@@ -87,14 +87,17 @@ namespace TallerWEBAPI.Controllers
                     Telefono = request.Telefono,
                     Correo = request.Correo,
                     Usuario = request.NombreUsuario,
-                    Contraseña = BCrypt.Net.BCrypt.HashPassword(request.Contraseña),
+                    Contraseña = request.Contraseña, // Se hashea en el servicio
                     Direccion = request.Direccion
                 };
 
-                var exito = await _authService.RegistrarCliente(cliente);
+                var resultado = await _authService.RegistrarCliente(cliente);
 
-                if (!exito)
-                    return Conflict(new { mensaje = "Ya existe un cliente con ese correo o nombre de usuario." });
+                if (!resultado.Exito)
+                    return Conflict(new
+                    {
+                        mensaje = resultado.MensajeError ?? "Error al registrar el cliente"
+                    });
 
                 _logger.LogInformation($"Nuevo cliente registrado: {cliente.Correo}");
 
@@ -103,7 +106,7 @@ namespace TallerWEBAPI.Controllers
                     mensaje = "Cliente registrado correctamente.",
                     cliente = new
                     {
-                        cliente.IdCliente,
+                        IdCliente = cliente.IdCliente,
                         cliente.Nombre,
                         cliente.Correo,
                         cliente.Usuario,
@@ -115,8 +118,12 @@ namespace TallerWEBAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error en el registro de cliente");
-                return StatusCode(500, new { mensaje = "Error interno del servidor" });
+                _logger.LogError(ex, $"Error en el registro de cliente: {request.Correo}");
+                return StatusCode(500, new
+                {
+                    mensaje = "Error interno del servidor",
+                    detalle = ex.Message
+                });
             }
         }
 
@@ -130,8 +137,8 @@ namespace TallerWEBAPI.Controllers
 
                 var result = await _authService.ResetPassword(request.Email, _emailService);
 
-                if (!result)
-                    return BadRequest(new { mensaje = "No se encontró un cliente con ese correo electrónico" });
+                if (!result.Exito)
+                    return BadRequest(new { mensaje = result.MensajeError });
 
                 _logger.LogInformation($"Contraseña reseteada para: {request.Email}");
 
@@ -145,6 +152,7 @@ namespace TallerWEBAPI.Controllers
         }
 
         [HttpGet("cliente/{id}")]
+        [Authorize]
         public async Task<IActionResult> GetClienteData(int id)
         {
             try
@@ -172,6 +180,7 @@ namespace TallerWEBAPI.Controllers
         }
 
         [HttpPut("cliente/{id}")]
+        [Authorize]
         public async Task<IActionResult> UpdateCliente(int id, [FromBody] UpdateClienteRequest request)
         {
             try
@@ -222,6 +231,7 @@ namespace TallerWEBAPI.Controllers
         }
 
         [HttpPost("change-password")]
+        [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
         {
             try

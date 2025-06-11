@@ -15,6 +15,8 @@ public partial class Factura
 
     public decimal MontoTotal { get; set; }
 
+    public string? EstadoPago { get; set; }
+
     public virtual Cliente IdClienteNavigation { get; set; } = null!;
 
     public virtual Reparacione IdReparacionNavigation { get; set; } = null!;

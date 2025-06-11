@@ -8,10 +8,10 @@ using TallerWEBAPI.Models;
 
 public class AuthService
 {
-    private readonly MotosTuningContext _context;
+    private readonly MotosTuning3Context _context;
     private readonly ILogger<AuthService> _logger;
 
-    public AuthService(MotosTuningContext context, ILogger<AuthService> logger)
+    public AuthService(MotosTuning3Context context, ILogger<AuthService> logger)
     {
         _context = context;
         _logger = logger;
@@ -44,12 +44,15 @@ public class AuthService
         }
     }
 
-    public async Task<bool> RegistrarCliente(Cliente cliente)
+    public async Task<RegistroResultado> RegistrarCliente(Cliente cliente)
     {
         try
         {
-            if (await _context.Clientes.AnyAsync(c => c.Correo == cliente.Correo || c.Usuario == cliente.Usuario))
-                return false;
+            if (await _context.Clientes.AnyAsync(c => c.Correo == cliente.Correo))
+                return new RegistroResultado { Exito = false, MensajeError = "Ya existe un cliente con ese correo electrónico" };
+
+            if (await _context.Clientes.AnyAsync(c => c.Usuario == cliente.Usuario))
+                return new RegistroResultado { Exito = false, MensajeError = "El nombre de usuario ya está en uso" };
 
             cliente.Contraseña = BCrypt.Net.BCrypt.HashPassword(cliente.Contraseña);
 
@@ -57,16 +60,16 @@ public class AuthService
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Nuevo cliente registrado: {cliente.Correo}");
-            return true;
+            return new RegistroResultado { Exito = true };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error al registrar cliente: {cliente.Correo}");
-            throw;
+            return new RegistroResultado { Exito = false, MensajeError = "Error interno al registrar el cliente" };
         }
     }
 
-    public async Task<bool> ResetPassword(string email, EmailService emailService)
+    public async Task<ResetPasswordResult> ResetPassword(string email, EmailService emailService)
     {
         try
         {
@@ -74,7 +77,7 @@ public class AuthService
             if (cliente == null)
             {
                 _logger.LogWarning($"Intento de reset de contraseña para correo no existente: {email}");
-                return false;
+                return new ResetPasswordResult { Exito = false, MensajeError = "No se encontró un cliente con ese correo electrónico" };
             }
 
             var newPassword = GenerateTemporaryPassword();
@@ -84,12 +87,12 @@ public class AuthService
             await emailService.SendPasswordResetEmail(email, newPassword);
 
             _logger.LogInformation($"Contraseña reseteada para: {email}");
-            return true;
+            return new ResetPasswordResult { Exito = true };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error al resetear contraseña para: {email}");
-            throw;
+            return new ResetPasswordResult { Exito = false, MensajeError = "Error interno al resetear la contraseña" };
         }
     }
 

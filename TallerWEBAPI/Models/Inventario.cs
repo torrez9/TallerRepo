@@ -11,9 +11,13 @@ public partial class Inventario
 
     public int Cantidad { get; set; }
 
-    public decimal Precio { get; set; }
+    public decimal PrecioActual { get; set; }
+
+    public int? IdProveedor { get; set; }
 
     public virtual ICollection<CompraPieza> CompraPiezas { get; set; } = new List<CompraPieza>();
 
-    public virtual ICollection<ReparacionPieza> ReparacionPiezas { get; set; } = new List<ReparacionPieza>();
+    public virtual ICollection<DetalleReparacion> DetalleReparacions { get; set; } = new List<DetalleReparacion>();
+
+    public virtual Proveedore? IdProveedorNavigation { get; set; }
 }

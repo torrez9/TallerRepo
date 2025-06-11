@@ -21,6 +21,8 @@ public partial class Reparacione
 
     public decimal? Total { get; set; }
 
+    public string? Fase { get; set; }
+
     public virtual ICollection<DetalleReparacion> DetalleReparacions { get; set; } = new List<DetalleReparacion>();
 
     public virtual ICollection<Factura> Facturas { get; set; } = new List<Factura>();
@@ -28,6 +30,4 @@ public partial class Reparacione
     public virtual Moto IdMotoNavigation { get; set; } = null!;
 
     public virtual Usuario IdUsuarioNavigation { get; set; } = null!;
-
-    public virtual ICollection<ReparacionPieza> ReparacionPiezas { get; set; } = new List<ReparacionPieza>();
 }

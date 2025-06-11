@@ -19,13 +19,7 @@ public partial class Moto
 
     public string Color { get; set; } = null!;
 
-    public string EstadoEntrada { get; set; } = null!;
-
-    public string? EstadoSalida { get; set; }
-
     public virtual Cliente? IdClienteNavigation { get; set; }
 
     public virtual ICollection<Reparacione> Reparaciones { get; set; } = new List<Reparacione>();
-
-    public virtual ICollection<Cliente> IdClientes { get; set; } = new List<Cliente>();
 }

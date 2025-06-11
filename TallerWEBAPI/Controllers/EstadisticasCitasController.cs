@@ -8,9 +8,9 @@ namespace TallerWEBAPI.Controllers
     [ApiController]
     public class EstadisticasCitasController : ControllerBase
     {
-        private readonly MotosTuningContext _context;
+        private readonly MotosTuning3Context _context;
 
-        public EstadisticasCitasController(MotosTuningContext context)
+        public EstadisticasCitasController(MotosTuning3Context context)
         {
             _context = context;
         }
