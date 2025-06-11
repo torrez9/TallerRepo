@@ -15,9 +15,6 @@ builder.Services.AddScoped(sp => new HttpClient
 
 // Configuración de autenticación
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
-//builder.Services.AddScoped<INotificationService, NotificationService>();
-//builder.Services.AddScoped<CitaService>();
-//builder.Services.AddScoped<ClienteService>();
 builder.Services.AddAuthorizationCore();
 
 await builder.Build().RunAsync();

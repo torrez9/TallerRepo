@@ -11,10 +11,10 @@ namespace TallerWEBAPI.Controllers
     [ApiController]
     public class ClientesController : ControllerBase
     {
-        private readonly MotosTuningContext _context;
+        private readonly MotosTuning3Context _context;
         private readonly CitaService _citaService;
 
-        public ClientesController(MotosTuningContext context, CitaService citaService)
+        public ClientesController(MotosTuning3Context context, CitaService citaService)
         {
             _context = context;
             _citaService = citaService ?? throw new ArgumentNullException(nameof(citaService));

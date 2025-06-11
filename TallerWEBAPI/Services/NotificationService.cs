@@ -20,7 +20,6 @@ namespace TallerWEBAPI.Services
         private readonly CitaService _citaService;
         private readonly ClienteService _clienteService;
 
-        // ADVERTENCIA: No es recomendable hardcodear credenciales en el código
         private const string EmailFrom = "darwincarballo44@gmail.com";
         private const string EmailPassword = "jfzslqsbbfjtiicp";
         private const string SmtpHost = "smtp.gmail.com";

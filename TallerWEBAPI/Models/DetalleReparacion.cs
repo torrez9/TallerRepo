@@ -13,6 +13,16 @@ public partial class DetalleReparacion
 
     public decimal? CostoServicio { get; set; }
 
+    public int? IdPieza { get; set; }
+
+    public int? CantPieza { get; set; }
+
+    public decimal? CostoPieza { get; set; }
+
+    public decimal? Importe { get; set; }
+
+    public virtual Inventario? IdPiezaNavigation { get; set; }
+
     public virtual Reparacione? IdReparacionesNavigation { get; set; }
 
     public virtual Servicio? IdserviciosNavigation { get; set; }

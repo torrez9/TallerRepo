@@ -5,10 +5,10 @@ using TallerWEBAPI.Models;
 
 public class ProfileService
 {
-    private readonly MotosTuningContext _context;
+    private readonly MotosTuning3Context _context;
     private readonly ILogger<ProfileService> _logger;
 
-    public ProfileService(MotosTuningContext context, ILogger<ProfileService> logger)
+    public ProfileService(MotosTuning3Context context, ILogger<ProfileService> logger)
     {
         _context = context;
         _logger = logger;

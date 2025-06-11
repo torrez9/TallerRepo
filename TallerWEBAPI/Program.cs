@@ -20,7 +20,7 @@ builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddHttpContextAccessor();
-
+//
 
 
 
@@ -55,7 +55,7 @@ builder.Services.AddCors(options =>
 });
 
 // Configuración del DbContext
-builder.Services.AddDbContext<MotosTuningContext>(options =>
+builder.Services.AddDbContext<MotosTuning3Context>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("MotosTuningConnection"),
         sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
@@ -109,14 +109,11 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TallerWEBAPI v1");
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "TallerWEBAPI v1");
+});
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");  
